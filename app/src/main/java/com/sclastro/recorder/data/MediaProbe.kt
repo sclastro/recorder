@@ -22,9 +22,13 @@ object MediaProbe {
         }
         val fromExtractor = runCatching { probeWithExtractor(file) }.getOrNull()
         val duration = fromExtractor?.durationMs?.takeIf { it > 0 } ?: runCatching {
-            MediaMetadataRetriever().use { retriever ->
+            // MediaMetadataRetriever only became AutoCloseable in API 29.
+            val retriever = MediaMetadataRetriever()
+            try {
                 retriever.setDataSource(file.absolutePath)
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            } finally {
+                retriever.release()
             }
         }.getOrDefault(0L)
         return (fromExtractor ?: Info()).copy(durationMs = duration)

@@ -62,12 +62,15 @@ object TrimEngine {
             val info = readWavInfo(input) ?: return Outcome.Failure("讀唔到 WAV 檔案結構")
             if (info.blockAlign <= 0) return Outcome.Failure("WAV 格式唔正常")
 
-            val bytesPerMs = info.sampleRate.toLong() * info.blockAlign / 1000
-            fun align(v: Long) = v - (v % info.blockAlign)
-            val from = align((startMs * bytesPerMs).coerceIn(0, info.dataLength))
-            val to = align((endMs * bytesPerMs).coerceIn(0, info.dataLength))
-            val length = to - from
-            if (length <= 0) return Outcome.Failure("選取範圍太短")
+            // Work in frames, not bytes-per-millisecond: at 44.1 kHz the latter
+            // is not a whole number and the cut would drift.
+            val totalFrames = info.dataLength / info.blockAlign
+            val fromFrame = (startMs * info.sampleRate / 1000).coerceIn(0, totalFrames)
+            val toFrame = (endMs * info.sampleRate / 1000).coerceIn(0, totalFrames)
+            val frames = toFrame - fromFrame
+            if (frames <= 0) return Outcome.Failure("選取範圍太短")
+            val from = fromFrame * info.blockAlign
+            val length = frames * info.blockAlign
 
             val depth = when {
                 info.formatTag == WavSink.FORMAT_IEEE_FLOAT -> BitDepth.FLOAT_32
@@ -87,7 +90,7 @@ object TrimEngine {
                 }
                 sink.finish()
             }
-            val durationMs = length * 1000 / (info.sampleRate.toLong() * info.blockAlign)
+            val durationMs = frames * 1000 / info.sampleRate
             return Outcome.Success(destination, durationMs)
         }
     }
@@ -190,7 +193,13 @@ object TrimEngine {
                     info.offset = 0
                     info.size = size
                     info.presentationTimeUs = pts - firstPtsUs
-                    info.flags = extractor.sampleFlags
+                    // Extractor sample flags and codec buffer flags are different
+                    // namespaces; only the key-frame bit carries over.
+                    info.flags = if (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
+                        MediaCodec.BUFFER_FLAG_KEY_FRAME
+                    } else {
+                        0
+                    }
                     muxer.writeSampleData(outTrack, buffer, info)
                     lastPtsUs = pts - firstPtsUs
                     wrote = true

@@ -1,14 +1,18 @@
 package com.sclastro.recorder.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.sclastro.recorder.MainActivity
@@ -112,10 +116,18 @@ class RecordingService : LifecycleService() {
         }
     }
 
+    /**
+     * Refreshes the ongoing notification. Capture keeps running even when the
+     * user has denied notifications — the timer just is not visible.
+     */
     private fun notify(notification: Notification) {
-        runCatching {
-            androidx.core.app.NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
         }
+        runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
     }
 
     private fun buildNotification(status: RecorderEngine.Status, elapsedMs: Long): Notification {

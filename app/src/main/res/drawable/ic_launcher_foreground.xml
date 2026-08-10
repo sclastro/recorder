@@ -1,6 +1,74 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#C96442"
-        android:pathData="M54,30 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:scaleX="0.86" android:scaleY="0.86" android:pivotX="54" android:pivotY="55" android:translateY="-1">
+    
+        <!-- Cast shadow, so the mic reads as sitting above the plate. -->
+        <path android:pathData="M54,88 m-19,0 a19,4.5 0 1,0 38,0 a19,4.5 0 1,0 -38,0">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="radial"
+                    android:centerX="54" android:centerY="88" android:gradientRadius="19"
+                    android:startColor="#33000000" android:endColor="#00000000" />
+            </aapt:attr>
+        </path>
+    
+        <!-- Stand -->
+        <path android:pathData="M51.5,70 h5 v12 h-5 z" android:fillColor="#8E4A32" />
+        <path android:pathData="M41,82 h26 a2.5,2.5 0 0 1 0,5 h-26 a2.5,2.5 0 0 1 0,-5 z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="41" android:startY="82" android:endX="41" android:endY="87"
+                    android:startColor="#B4573A" android:endColor="#7E3E28" />
+            </aapt:attr>
+        </path>
+    
+        <!-- Cradle arc -->
+        <path
+            android:pathData="M35,48 v3 a19,19 0 0 0 38,0 v-3"
+            android:strokeWidth="5.5"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="35" android:startY="48" android:endX="73" android:endY="70"
+                    android:startColor="#D4795A" android:endColor="#8E4A32" />
+            </aapt:attr>
+        </path>
+    
+        <!-- Capsule body -->
+        <path android:pathData="M54,20 a10,10 0 0 1 10,10 v20 a10,10 0 0 1 -20,0 v-20 a10,10 0 0 1 10,-10 z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="radial"
+                    android:centerX="48" android:centerY="28" android:gradientRadius="30"
+                    android:startColor="#F3AC90"
+                    android:centerColor="#C96442"
+                    android:endColor="#8E3F26" />
+            </aapt:attr>
+        </path>
+    
+        <!-- Grille -->
+        <path android:pathData="M47,31 h14 M47,37 h14 M47,43 h14"
+            android:strokeWidth="1.6"
+            android:strokeLineCap="round"
+            android:strokeColor="#40FFFFFF"
+            android:fillColor="#00000000" />
+    
+        <!-- Specular highlight -->
+        <path android:pathData="M48.5,26 a2.2,2.2 0 0 1 2.2,2.2 v14 a2.2,2.2 0 0 1 -4.4,0 v-14 a2.2,2.2 0 0 1 2.2,-2.2 z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="48" android:startY="26" android:endX="48" android:endY="44"
+                    android:startColor="#8CFFFFFF" android:endColor="#00FFFFFF" />
+            </aapt:attr>
+        </path>
+    
+    </group>
 </vector>

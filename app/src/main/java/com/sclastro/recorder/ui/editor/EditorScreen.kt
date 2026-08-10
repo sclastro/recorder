@@ -1,0 +1,212 @@
+package com.sclastro.recorder.ui.editor
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sclastro.recorder.ui.components.WaveformScrubber
+import com.sclastro.recorder.ui.library.TextInputDialog
+import com.sclastro.recorder.ui.theme.MonoSmall
+import com.sclastro.recorder.util.formatDurationPrecise
+
+/**
+ * Trim view: drag the two handles, preview, then write the selection out as a
+ * new file. The original is never modified.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditorScreen(
+    recordingId: Long,
+    onBack: () -> Unit,
+    onSaved: (Long) -> Unit,
+    viewModel: EditorViewModel = viewModel(factory = EditorViewModel.Factory),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbars = remember { SnackbarHostState() }
+    var showNameDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(recordingId) { viewModel.load(recordingId) }
+
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            snackbars.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+
+    LaunchedEffect(state.savedId) {
+        state.savedId?.let(onSaved)
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbars) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = state.recording?.displayName ?: "剪輯",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 20.dp),
+        ) {
+            Text(
+                text = "拖動兩邊嘅把手揀出想保留嘅一橛。WAV 係精確到取樣點嘅無損裁剪；壓縮格式唔會重新編碼，切口會對齊最近嘅音框。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp))
+                    .padding(vertical = 16.dp, horizontal = 12.dp),
+            ) {
+                WaveformScrubber(
+                    peaks = state.peaks,
+                    progress = if (state.durationMs > 0) {
+                        state.positionMs.toFloat() / state.durationMs
+                    } else {
+                        0f
+                    },
+                    height = 150.dp,
+                    selection = state.selection,
+                    onSeek = viewModel::seekToFraction,
+                    onSelectionChange = viewModel::setSelection,
+                )
+
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("起 ${formatDurationPrecise(state.startMs)}", style = MonoSmall)
+                    Text(
+                        text = "長 ${formatDurationPrecise(state.endMs - state.startMs)}",
+                        style = MonoSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text("止 ${formatDurationPrecise(state.endMs)}", style = MonoSmall)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(onClick = viewModel::setStartHere, modifier = Modifier.weight(1f)) {
+                    Text("設為起點")
+                }
+                IconButton(onClick = viewModel::previewSelection) {
+                    Icon(
+                        imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = "試聽選取範圍",
+                    )
+                }
+                OutlinedButton(onClick = viewModel::setEndHere, modifier = Modifier.weight(1f)) {
+                    Text("設為終點")
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("微調", style = MaterialTheme.typography.labelMedium)
+                TextButton(onClick = { viewModel.nudgeStart(-100) }) { Text("起 -0.1s") }
+                TextButton(onClick = { viewModel.nudgeStart(100) }) { Text("起 +0.1s") }
+                TextButton(onClick = { viewModel.nudgeEnd(-100) }) { Text("止 -0.1s") }
+                TextButton(onClick = { viewModel.nudgeEnd(100) }) { Text("止 +0.1s") }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Button(
+                onClick = { showNameDialog = true },
+                enabled = !state.busy && state.endMs > state.startMs,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                if (state.busy) {
+                    CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("儲存做新檔案")
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    if (showNameDialog) {
+        TextInputDialog(
+            title = "新檔案名",
+            initial = (state.recording?.displayName ?: "錄音") + "_剪輯",
+            confirmLabel = "儲存",
+            onConfirm = {
+                showNameDialog = false
+                viewModel.saveTrimmed(it)
+            },
+            onDismiss = { showNameDialog = false },
+        )
+    }
+}

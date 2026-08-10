@@ -1,0 +1,233 @@
+package com.sclastro.recorder.ui.player
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sclastro.recorder.data.Recording
+import com.sclastro.recorder.ui.components.WaveformScrubber
+import com.sclastro.recorder.ui.theme.TimerLarge
+import com.sclastro.recorder.util.formatDuration
+import com.sclastro.recorder.util.formatDurationPrecise
+import com.sclastro.recorder.util.formatSize
+import com.sclastro.recorder.util.formatTimestamp
+
+private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlayerScreen(
+    recordingId: Long,
+    onBack: () -> Unit,
+    onEdit: (Recording) -> Unit,
+    onShare: (Recording) -> Unit,
+    viewModel: PlayerViewModel = viewModel(factory = PlayerViewModel.Factory),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(recordingId) { viewModel.load(recordingId) }
+
+    val recording = state.recording
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = recording?.displayName ?: "播放",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    recording?.let {
+                        IconButton(onClick = { onShare(it) }) {
+                            Icon(Icons.Filled.Share, contentDescription = "分享")
+                        }
+                        IconButton(onClick = { onEdit(it) }) {
+                            Icon(Icons.Filled.ContentCut, contentDescription = "剪輯")
+                        }
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            recording?.let {
+                Text(
+                    text = "${formatTimestamp(it.createdAt)} · ${it.qualityLine()} · ${formatSize(it.sizeBytes)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp))
+                    .padding(vertical = 18.dp, horizontal = 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(formatDurationPrecise(state.positionMs), style = TimerLarge)
+                Text(
+                    text = "／ ${formatDuration(state.durationMs)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(14.dp))
+                WaveformScrubber(
+                    peaks = state.peaks,
+                    progress = state.progress,
+                    onSeek = viewModel::seekToFraction,
+                    bookmarks = recording?.bookmarks.orEmpty().mapNotNull { bookmark ->
+                        state.durationMs.takeIf { it > 0 }?.let { bookmark.toFloat() / it }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { viewModel.skip(-10_000) }, modifier = Modifier.size(52.dp)) {
+                    Icon(Icons.Filled.Replay10, contentDescription = "後退 10 秒")
+                }
+                FilledIconButton(
+                    onClick = viewModel::togglePlay,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape),
+                ) {
+                    Icon(
+                        imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (state.playing) "暫停" else "播放",
+                        modifier = Modifier.size(34.dp),
+                    )
+                }
+                IconButton(onClick = { viewModel.skip(10_000) }, modifier = Modifier.size(52.dp)) {
+                    Icon(Icons.Filled.Forward10, contentDescription = "前進 10 秒")
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SPEEDS.forEach { speed ->
+                    FilterChip(
+                        selected = state.speed == speed,
+                        onClick = { viewModel.setSpeed(speed) },
+                        label = { Text(if (speed == 1f) "1x" else "${speed}x") },
+                    )
+                }
+                FilterChip(
+                    selected = state.skipSilence,
+                    onClick = viewModel::toggleSkipSilence,
+                    label = { Text("跳過靜音") },
+                )
+            }
+
+            recording?.bookmarks?.takeIf { it.isNotEmpty() }?.let { bookmarks ->
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Bookmark, contentDescription = null, Modifier.size(18.dp))
+                    bookmarks.forEach { position ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { viewModel.jumpToBookmark(position) },
+                            label = { Text(formatDuration(position)) },
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            recording?.let {
+                var note by remember(it.id) { mutableStateOf(it.note) }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { value ->
+                        note = value
+                        viewModel.setNote(value)
+                    },
+                    label = { Text("備註（可以搜尋）") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(110.dp),
+                )
+            }
+        }
+    }
+}
