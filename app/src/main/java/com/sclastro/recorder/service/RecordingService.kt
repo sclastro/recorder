@@ -20,7 +20,6 @@ import com.sclastro.recorder.R
 import com.sclastro.recorder.audio.RecorderEngine
 import com.sclastro.recorder.container
 import com.sclastro.recorder.util.formatDuration
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -86,7 +85,9 @@ class RecordingService : LifecycleService() {
         val request = container.activeRequest
         val folder = request?.folder.orEmpty()
         val name = request?.name.orEmpty().ifBlank { "錄音" }
-        lifecycleScope.launch(Dispatchers.IO) {
+        // Deliberately not lifecycleScope: stopSelf() below tears the service
+        // down, and cancelling mid-commit would strand the file in .pending.
+        container.appScope.launch {
             val result = engine.stop()
             if (result != null) {
                 val saved = container.repository.commitRecording(result, folder, name)

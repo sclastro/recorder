@@ -8,6 +8,9 @@ import com.sclastro.recorder.data.RecordingRepository
 import com.sclastro.recorder.data.RecordingStorage
 import com.sclastro.recorder.data.db.RecorderDatabase
 import com.sclastro.recorder.data.prefs.SettingsStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 
@@ -33,6 +36,9 @@ class AppContainer(context: Context) {
 
     /** Retained for the lifetime of the capture so the service knows where to file it. */
     @Volatile var activeRequest: StartRequest? = null
+
+    /** Outlives any single screen or service, for work that must not be cancelled. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** The recording that was just saved, so the UI can offer to rename it. */
     val justSaved = MutableStateFlow<Recording?>(null)

@@ -73,6 +73,15 @@ class RecorderEngine {
      */
     @SuppressLint("MissingPermission")
     fun start(rawConfig: RecordingConfig, pendingFile: File): String? = synchronized(lock) {
+        val outcome = doStart(rawConfig, pendingFile)
+        // Nothing else is watching the return value once the service has been
+        // handed the request, so the message has to reach the UI via state.
+        if (outcome != null) _state.value = State(error = outcome)
+        return outcome
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun doStart(rawConfig: RecordingConfig, pendingFile: File): String? {
         if (thread != null) return "已經錄緊音"
         val config = rawConfig.normalised()
 
