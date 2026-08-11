@@ -189,6 +189,11 @@ class RecorderEngine {
         _state.value = _state.value.copy(error = null)
     }
 
+    /** Surfaces a failure that happened outside the engine, e.g. in the service. */
+    fun reportError(message: String) {
+        _state.value = _state.value.copy(error = message)
+    }
+
     private fun captureLoop(
         record: AudioRecord,
         sink: AudioSink,

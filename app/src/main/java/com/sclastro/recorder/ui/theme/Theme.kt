@@ -32,25 +32,25 @@ data class RecorderAccents(
 
 val LocalAccents = staticCompositionLocalOf {
     RecorderAccents(
-        record = Palette.Stone,
-        recordBright = Palette.StoneLight,
-        recordDeep = Palette.StoneDeep,
-        recordWash = Palette.StoneWash,
+        record = Palette.Ember,
+        recordBright = Palette.EmberLight,
+        recordDeep = Palette.EmberDeep,
+        recordWash = Palette.EmberWash,
         playback = Palette.Sage,
         playbackWash = Palette.SageWash,
         warning = Palette.Ochre,
-        danger = Palette.Brick,
-        waveform = Palette.Stone,
+        danger = Palette.Crimson,
+        waveform = Palette.Ember,
         waveformIdle = Palette.OutlineFirm,
         isLight = true,
     )
 }
 
 private val LightScheme = lightColorScheme(
-    primary = Palette.Stone,
+    primary = Palette.Ember,
     onPrimary = Color.White,
-    primaryContainer = Palette.StoneWash,
-    onPrimaryContainer = Palette.StoneDeep,
+    primaryContainer = Palette.EmberWash,
+    onPrimaryContainer = Palette.EmberDeep,
     secondary = Palette.Sage,
     onSecondary = Color.White,
     secondaryContainer = Palette.SageWash,
@@ -68,17 +68,17 @@ private val LightScheme = lightColorScheme(
     onSurfaceVariant = Palette.InkMuted,
     outline = Palette.OutlineFirm,
     outlineVariant = Palette.OutlineSoft,
-    error = Palette.Brick,
+    error = Palette.Crimson,
     onError = Color.White,
-    errorContainer = Palette.BrickWash,
-    onErrorContainer = Palette.Brick,
+    errorContainer = Palette.CrimsonWash,
+    onErrorContainer = Palette.Crimson,
 )
 
 private val DarkScheme = darkColorScheme(
-    primary = Palette.StoneNight,
+    primary = Palette.EmberNight,
     onPrimary = Color(0xFF2A1A12),
-    primaryContainer = Palette.StoneNightWash,
-    onPrimaryContainer = Palette.StoneNightLight,
+    primaryContainer = Palette.EmberNightWash,
+    onPrimaryContainer = Palette.EmberNightLight,
     secondary = Palette.SageNight,
     onSecondary = Color(0xFF141C18),
     secondaryContainer = Palette.SageNightWash,
@@ -96,7 +96,7 @@ private val DarkScheme = darkColorScheme(
     onSurfaceVariant = Palette.ChalkMuted,
     outline = Palette.NightOutlineFirm,
     outlineVariant = Palette.NightOutline,
-    error = Palette.BrickNight,
+    error = Palette.CrimsonNight,
     onError = Color(0xFF33130F),
 )
 
@@ -108,29 +108,29 @@ fun RecorderTheme(
     val scheme = if (darkTheme) DarkScheme else LightScheme
     val accents = if (darkTheme) {
         RecorderAccents(
-            record = Palette.StoneNight,
-            recordBright = Palette.StoneNightLight,
-            recordDeep = Palette.StoneNightDeep,
-            recordWash = Palette.StoneNightWash,
+            record = Palette.EmberNight,
+            recordBright = Palette.EmberNightLight,
+            recordDeep = Palette.EmberNightDeep,
+            recordWash = Palette.EmberNightWash,
             playback = Palette.SageNight,
             playbackWash = Palette.SageNightWash,
             warning = Palette.OchreNight,
-            danger = Palette.BrickNight,
-            waveform = Palette.StoneNight,
+            danger = Palette.CrimsonNight,
+            waveform = Palette.EmberNight,
             waveformIdle = Palette.NightOutlineFirm,
             isLight = false,
         )
     } else {
         RecorderAccents(
-            record = Palette.Stone,
-            recordBright = Palette.StoneLight,
-            recordDeep = Palette.StoneDeep,
-            recordWash = Palette.StoneWash,
+            record = Palette.Ember,
+            recordBright = Palette.EmberLight,
+            recordDeep = Palette.EmberDeep,
+            recordWash = Palette.EmberWash,
             playback = Palette.Sage,
             playbackWash = Palette.SageWash,
             warning = Palette.Ochre,
-            danger = Palette.Brick,
-            waveform = Palette.Stone,
+            danger = Palette.Crimson,
+            waveform = Palette.Ember,
             waveformIdle = Palette.OutlineFirm,
             isLight = true,
         )

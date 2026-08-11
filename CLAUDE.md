@@ -29,10 +29,13 @@ Both themes are defined in `ui/theme/`; add colours to `Palette` and expose them
 through `RecorderAccents` rather than hard-coding values in screens.
 
 - Ground `#FAF9F5`, cards `#FFFFFF`, sunk `#F2F0E9`, hairline `#E9E6DC`
-- Record accent — Warm Stone `#A9705B` (gradient `#B98570` → `#79503F`)
-- Playback accent — sage `#6D8278`; clipping `#A2564A`; bookmarks `#9E8154`
-- Accents must read as *material*, not as signal. Nothing should out-shout the
-  waveform. Do not raise saturation.
+- Record accent — soft red `#CB5A52` (gradient to `#E58C84`, deep `#8E3A34`)
+- Playback accent — sage `#6D8278`; bookmarks `#9E8154`
+- Clipping/destructive — crimson `#8C1D18`, deliberately much deeper than the
+  record accent so a peak warning reads as an escalation, not more of the same
+- The owner asked for red after an earlier low-chroma terracotta ("Warm Stone",
+  `#A9705B`) read as brown. Keep the accent recognisably red; keep everything
+  else low-chroma so nothing out-shouts the waveform.
 
 The record button is deliberately shallow: a half-strength vertical gradient, a
 hairline lit top edge, a 5dp shadow. No radial "sphere" body, no specular oval,

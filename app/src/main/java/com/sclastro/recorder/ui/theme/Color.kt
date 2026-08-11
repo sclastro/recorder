@@ -4,9 +4,12 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * Warm, paper-like light palette (the app's primary look) with a matching dark
- * set. Everything is deliberately low-saturation: the accents read as material
- * — stone, sage — rather than as signal colours, so nothing competes with the
- * waveform for attention.
+ * set.
+ *
+ * The record accent is a soft red — the conventional "record" colour — kept
+ * light enough to sit on the off-white ground without glaring. Clipping uses a
+ * much deeper crimson so a peak warning still reads as an escalation rather
+ * than more of the same colour.
  */
 object Palette {
     // Light
@@ -20,20 +23,21 @@ object Palette {
     val InkMuted = Color(0xFF6B6963)
     val InkFaint = Color(0xFF9A978E)
 
-    /** Record accent — a muted terracotta, closer to clay than to orange. */
-    val Stone = Color(0xFFA9705B)
-    val StoneLight = Color(0xFFC99883)
-    val StoneMid = Color(0xFFB98570)
-    val StoneDeep = Color(0xFF79503F)
-    val StoneWash = Color(0xFFF1E7E1)
+    /** Record accent. */
+    val Ember = Color(0xFFCB5A52)
+    val EmberLight = Color(0xFFE58C84)
+    val EmberDeep = Color(0xFF8E3A34)
+    val EmberWash = Color(0xFFFAE8E6)
 
-    /** Playback accent — desaturated sage, distinct from the record colour. */
+    /** Playback accent — desaturated sage, so play never looks like record. */
     val Sage = Color(0xFF6D8278)
     val SageWash = Color(0xFFE7EDE9)
 
     val Ochre = Color(0xFF9E8154)
-    val Brick = Color(0xFFA2564A)
-    val BrickWash = Color(0xFFF3E5E2)
+
+    /** Clipping / destructive. Deliberately darker than [Ember]. */
+    val Crimson = Color(0xFF8C1D18)
+    val CrimsonWash = Color(0xFFF6E2E1)
 
     // Dark
     val Night = Color(0xFF161614)
@@ -46,12 +50,12 @@ object Palette {
     val ChalkMuted = Color(0xFFA8A49B)
     val ChalkFaint = Color(0xFF75726B)
 
-    val StoneNight = Color(0xFFBE8B75)
-    val StoneNightLight = Color(0xFFD3A794)
-    val StoneNightDeep = Color(0xFF7A5140)
-    val StoneNightWash = Color(0xFF322620)
+    val EmberNight = Color(0xFFDF8279)
+    val EmberNightLight = Color(0xFFF0A9A1)
+    val EmberNightDeep = Color(0xFF8E3A34)
+    val EmberNightWash = Color(0xFF3A211F)
     val SageNight = Color(0xFF8FA89C)
     val SageNightWash = Color(0xFF222B27)
     val OchreNight = Color(0xFFC4A579)
-    val BrickNight = Color(0xFFC98D80)
+    val CrimsonNight = Color(0xFFFFB4AB)
 }

@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
@@ -20,6 +21,7 @@ import com.sclastro.recorder.R
 import com.sclastro.recorder.audio.RecorderEngine
 import com.sclastro.recorder.container
 import com.sclastro.recorder.util.formatDuration
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -32,13 +34,89 @@ class RecordingService : LifecycleService() {
 
     private var wakeLock: PowerManager.WakeLock? = null
 
-    override fun onCreate() {
-        super.onCreate()
-        val engine = container.engine
+    /**
+     * Watches engine state to refresh the notification. Started only once
+     * capture is actually running: [lifecycleScope] dispatches on
+     * `Main.immediate`, so a collector launched in `onCreate` would run
+     * synchronously, see the still-idle engine and call `stopSelf()` before
+     * `onStartCommand` ever got a chance to begin recording.
+     */
+    private var notificationJob: Job? = null
 
-        // Mirror elapsed time into the notification, once per second.
-        lifecycleScope.launch {
-            engine.state
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        val engine = container.engine
+        val action = intent?.action
+
+        if (action == ACTION_START) {
+            beginCapture()
+            return START_NOT_STICKY
+        }
+
+        // Every other action only makes sense mid-capture. If the process was
+        // restarted the engine is idle and there is nothing left to control —
+        // bail out rather than sit here having been started but not foregrounded.
+        if (!engine.state.value.isActive) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // Idempotent, and covers the case where this is a fresh service
+        // instance reached through a notification action.
+        startForegroundNow()
+
+        when (action) {
+            ACTION_PAUSE -> engine.pause()
+            ACTION_RESUME -> engine.resume()
+            ACTION_STOP -> stopAndSave()
+        }
+        watchEngineState()
+        return START_NOT_STICKY
+    }
+
+    private fun beginCapture() {
+        val engine = container.engine
+        val request = container.startRequest
+        if (request == null) {
+            stopSelf()
+            return
+        }
+        if (!hasMicrophonePermission()) {
+            // startForeground with the microphone type throws without it.
+            engine.reportError("Microphone permission is required")
+            stopSelf()
+            return
+        }
+
+        container.startRequest = null
+        container.activeRequest = request
+
+        if (!startForegroundNow()) {
+            engine.reportError("Could not start the recording service")
+            stopSelf()
+            return
+        }
+
+        val error = try {
+            engine.start(request.config, request.pendingFile)
+        } catch (t: Throwable) {
+            Log.e(TAG, "capture failed to start", t)
+            engine.reportError(t.message ?: "Could not start recording")
+            "start failed"
+        }
+
+        if (error != null) {
+            stopSelf()
+        } else {
+            acquireWakeLock()
+            watchEngineState()
+        }
+    }
+
+    private fun watchEngineState() {
+        if (notificationJob?.isActive == true) return
+        notificationJob = lifecycleScope.launch {
+            container.engine.state
                 .map { it.status to it.elapsedMs / 1000 }
                 .distinctUntilChanged()
                 .collect { (status, seconds) ->
@@ -49,35 +127,6 @@ class RecordingService : LifecycleService() {
                     }
                 }
         }
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-        val engine = container.engine
-
-        when (intent?.action) {
-            ACTION_START -> {
-                startForegroundNow()
-                val request = container.startRequest
-                if (request == null) {
-                    stopSelf()
-                    return START_NOT_STICKY
-                }
-                container.startRequest = null
-                container.activeRequest = request
-                val error = engine.start(request.config, request.pendingFile)
-                if (error != null) {
-                    stopSelf()
-                } else {
-                    acquireWakeLock()
-                }
-            }
-            ACTION_PAUSE -> engine.pause()
-            ACTION_RESUME -> engine.resume()
-            ACTION_STOP -> stopAndSave()
-            else -> if (!engine.state.value.isActive) stopSelf()
-        }
-        return START_NOT_STICKY
     }
 
     private fun stopAndSave() {
@@ -99,11 +148,18 @@ class RecordingService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        notificationJob?.cancel()
+        notificationJob = null
         releaseWakeLock()
         super.onDestroy()
     }
 
-    private fun startForegroundNow() {
+    private fun hasMicrophonePermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /** Returns false if the platform refused to promote us to the foreground. */
+    private fun startForegroundNow(): Boolean = try {
         val notification = buildNotification(RecorderEngine.Status.RECORDING, 0)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceCompat.startForeground(
@@ -115,6 +171,10 @@ class RecordingService : LifecycleService() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        true
+    } catch (t: Throwable) {
+        Log.e(TAG, "startForeground refused", t)
+        false
     }
 
     /**
@@ -159,7 +219,12 @@ class RecordingService : LifecycleService() {
             .build()
     }
 
-    private fun command(action: String): PendingIntent = PendingIntent.getService(
+    /**
+     * Notification actions arrive while the app is in the background, where a
+     * plain startService() is not allowed — so they go through
+     * startForegroundService(), which an already-foreground service accepts.
+     */
+    private fun command(action: String): PendingIntent = PendingIntent.getForegroundService(
         this,
         action.hashCode(),
         Intent(this, RecordingService::class.java).setAction(action),
@@ -187,15 +252,12 @@ class RecordingService : LifecycleService() {
         const val ACTION_PAUSE = "com.sclastro.recorder.PAUSE"
         const val ACTION_RESUME = "com.sclastro.recorder.RESUME"
         const val ACTION_STOP = "com.sclastro.recorder.STOP"
+        private const val TAG = "RecordingService"
         private const val MAX_RECORDING_MS = 12L * 60 * 60 * 1000
 
         fun send(context: Context, action: String) {
             val intent = Intent(context, RecordingService::class.java).setAction(action)
-            if (action == ACTION_START) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
     }
 }
