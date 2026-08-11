@@ -36,7 +36,7 @@ class FileNamingTest {
     @Test
     fun `path separators cannot escape the folder`() {
         assertEquals("a_b_c", RecordingStorage.sanitiseName("a/b\\c"))
-        assertEquals("錄音", RecordingStorage.sanitiseName("   "))
+        assertEquals("Recording", RecordingStorage.sanitiseName("   "))
         assertEquals("會議 記錄", RecordingStorage.sanitiseName("會議 記錄"))
     }
 }

@@ -82,7 +82,7 @@ class RecorderEngine {
 
     @SuppressLint("MissingPermission")
     private fun doStart(rawConfig: RecordingConfig, pendingFile: File): String? {
-        if (thread != null) return "已經錄緊音"
+        if (thread != null) return "Already recording"
         val config = rawConfig.normalised()
 
         val minBuffer = AudioRecord.getMinBufferSize(
@@ -91,7 +91,7 @@ class RecorderEngine {
             config.bitDepth.encoding,
         )
         if (minBuffer <= 0) {
-            return "呢部機唔支援 ${config.sampleRate}Hz / ${config.bitDepth.label} / ${config.channels.label}"
+            return "This device does not support ${config.sampleRate} Hz / ${config.bitDepth.label} / ${config.channels.label}"
         }
 
         val chunkBytes = (config.sampleRate / CHUNKS_PER_SECOND) * config.bytesPerFrame
@@ -100,11 +100,11 @@ class RecorderEngine {
         val record = try {
             AudioRecord(config.source.value, config.sampleRate, config.channels.inMask, config.bitDepth.encoding, bufferBytes)
         } catch (e: IllegalArgumentException) {
-            return "錄音參數唔啱：${e.message}"
+            return "Unsupported recording settings: ${e.message}"
         }
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
-            return "開唔到咪高峰，可能俾其他 App 佔用緊"
+            return "Could not open the microphone — another app may be using it"
         }
 
         val effects = attachEffects(record, config)
@@ -124,7 +124,7 @@ class RecorderEngine {
         } catch (e: Exception) {
             releaseEffects(effects)
             record.release()
-            return "開唔到編碼器：${e.message}"
+            return "Could not start the encoder: ${e.message}"
         }
 
         stopRequested.set(false)
@@ -214,7 +214,7 @@ class RecorderEngine {
                 val read = record.read(buffer, 0, chunkBytes)
                 if (read <= 0) {
                     if (read == AudioRecord.ERROR_INVALID_OPERATION || read == AudioRecord.ERROR_DEAD_OBJECT) {
-                        failure = "錄音中斷（咪高峰被其他 App 搶走）"
+                        failure = "Recording interrupted — the microphone was taken by another app"
                         break
                     }
                     continue
@@ -245,7 +245,7 @@ class RecorderEngine {
             }
         } catch (e: Exception) {
             Log.e(TAG, "capture failed", e)
-            failure = e.message ?: "錄音出錯"
+            failure = e.message ?: "Recording failed"
         } finally {
             runCatching { record.stop() }
             record.release()

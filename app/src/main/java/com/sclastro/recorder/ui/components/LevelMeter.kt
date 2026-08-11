@@ -86,7 +86,7 @@ fun LevelMeter(
         ) {
             Text("-60", style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                text = if (clipping) "削波！" else "峰值 %.0f dB".format(peakDb),
+                text = if (clipping) "Clipping" else "Peak %.0f dB".format(peakDb),
                 style = MonoSmall,
                 color = if (clipping) accents.danger else MaterialTheme.colorScheme.onSurfaceVariant,
             )

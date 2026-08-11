@@ -56,6 +56,6 @@ class RecordingStorage(context: Context) {
                 .trim()
                 .trimEnd('.')
                 .take(120)
-                .ifBlank { "錄音" }
+                .ifBlank { "Recording" }
     }
 }

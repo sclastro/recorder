@@ -76,23 +76,23 @@ fun PlayerScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = recording?.displayName ?: "播放",
+                        text = recording?.displayName ?: "Playback",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
                     recording?.let {
                         IconButton(onClick = { onShare(it) }) {
-                            Icon(Icons.Filled.Share, contentDescription = "分享")
+                            Icon(Icons.Filled.Share, contentDescription = "Share")
                         }
                         IconButton(onClick = { onEdit(it) }) {
-                            Icon(Icons.Filled.ContentCut, contentDescription = "剪輯")
+                            Icon(Icons.Filled.ContentCut, contentDescription = "Trim")
                         }
                     }
                 },
@@ -127,7 +127,7 @@ fun PlayerScreen(
             ) {
                 Text(formatDurationPrecise(state.positionMs), style = TimerLarge)
                 Text(
-                    text = "／ ${formatDuration(state.durationMs)}",
+                    text = "/ ${formatDuration(state.durationMs)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -150,7 +150,7 @@ fun PlayerScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { viewModel.skip(-10_000) }, modifier = Modifier.size(52.dp)) {
-                    Icon(Icons.Filled.Replay10, contentDescription = "後退 10 秒")
+                    Icon(Icons.Filled.Replay10, contentDescription = "Back 10 seconds")
                 }
                 FilledIconButton(
                     onClick = viewModel::togglePlay,
@@ -160,12 +160,12 @@ fun PlayerScreen(
                 ) {
                     Icon(
                         imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.playing) "暫停" else "播放",
+                        contentDescription = if (state.playing) "Pause" else "Play",
                         modifier = Modifier.size(34.dp),
                     )
                 }
                 IconButton(onClick = { viewModel.skip(10_000) }, modifier = Modifier.size(52.dp)) {
-                    Icon(Icons.Filled.Forward10, contentDescription = "前進 10 秒")
+                    Icon(Icons.Filled.Forward10, contentDescription = "Forward 10 seconds")
                 }
             }
 
@@ -188,7 +188,7 @@ fun PlayerScreen(
                 FilterChip(
                     selected = state.skipSilence,
                     onClick = viewModel::toggleSkipSilence,
-                    label = { Text("跳過靜音") },
+                    label = { Text("Skip silence") },
                 )
             }
 
@@ -222,7 +222,7 @@ fun PlayerScreen(
                         note = value
                         viewModel.setNote(value)
                     },
-                    label = { Text("備註（可以搜尋）") },
+                    label = { Text("Notes (searchable)") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(110.dp),

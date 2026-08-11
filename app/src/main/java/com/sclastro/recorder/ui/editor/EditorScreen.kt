@@ -81,14 +81,14 @@ fun EditorScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = state.recording?.displayName ?: "剪輯",
+                        text = state.recording?.displayName ?: "Trim",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -101,7 +101,7 @@ fun EditorScreen(
                 .padding(horizontal = 20.dp),
         ) {
             Text(
-                text = "拖動兩邊嘅把手揀出想保留嘅一橛。WAV 係精確到取樣點嘅無損裁剪；壓縮格式唔會重新編碼，切口會對齊最近嘅音框。",
+                text = "Drag the handles to choose the part to keep. WAV is cut to the exact sample; compressed formats are not re-encoded, so the cut lands on the nearest audio frame.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -134,13 +134,13 @@ fun EditorScreen(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("起 ${formatDurationPrecise(state.startMs)}", style = MonoSmall)
+                    Text("Start ${formatDurationPrecise(state.startMs)}", style = MonoSmall)
                     Text(
-                        text = "長 ${formatDurationPrecise(state.endMs - state.startMs)}",
+                        text = "Length ${formatDurationPrecise(state.endMs - state.startMs)}",
                         style = MonoSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    Text("止 ${formatDurationPrecise(state.endMs)}", style = MonoSmall)
+                    Text("End ${formatDurationPrecise(state.endMs)}", style = MonoSmall)
                 }
             }
 
@@ -151,16 +151,16 @@ fun EditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(onClick = viewModel::setStartHere, modifier = Modifier.weight(1f)) {
-                    Text("設為起點")
+                    Text("Set start")
                 }
                 IconButton(onClick = viewModel::previewSelection) {
                     Icon(
                         imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = "試聽選取範圍",
+                        contentDescription = "Preview selection",
                     )
                 }
                 OutlinedButton(onClick = viewModel::setEndHere, modifier = Modifier.weight(1f)) {
-                    Text("設為終點")
+                    Text("Set end")
                 }
             }
 
@@ -171,11 +171,11 @@ fun EditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("微調", style = MaterialTheme.typography.labelMedium)
-                TextButton(onClick = { viewModel.nudgeStart(-100) }) { Text("起 -0.1s") }
-                TextButton(onClick = { viewModel.nudgeStart(100) }) { Text("起 +0.1s") }
-                TextButton(onClick = { viewModel.nudgeEnd(-100) }) { Text("止 -0.1s") }
-                TextButton(onClick = { viewModel.nudgeEnd(100) }) { Text("止 +0.1s") }
+                Text("Nudge", style = MaterialTheme.typography.labelMedium)
+                TextButton(onClick = { viewModel.nudgeStart(-100) }) { Text("Start −0.1s") }
+                TextButton(onClick = { viewModel.nudgeStart(100) }) { Text("Start +0.1s") }
+                TextButton(onClick = { viewModel.nudgeEnd(-100) }) { Text("End −0.1s") }
+                TextButton(onClick = { viewModel.nudgeEnd(100) }) { Text("End +0.1s") }
             }
 
             Spacer(Modifier.weight(1f))
@@ -190,7 +190,7 @@ fun EditorScreen(
                 if (state.busy) {
                     CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("儲存做新檔案")
+                    Text("Save as new file")
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -199,9 +199,9 @@ fun EditorScreen(
 
     if (showNameDialog) {
         TextInputDialog(
-            title = "新檔案名",
-            initial = (state.recording?.displayName ?: "錄音") + "_剪輯",
-            confirmLabel = "儲存",
+            title = "New file name",
+            initial = (state.recording?.displayName ?: "Recording") + "_trimmed",
+            confirmLabel = "Save",
             onConfirm = {
                 showNameDialog = false
                 viewModel.saveTrimmed(it)

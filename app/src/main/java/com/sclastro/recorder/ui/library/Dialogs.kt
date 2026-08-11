@@ -46,7 +46,7 @@ fun TextInputDialog(
         confirmButton = {
             TextButton(onClick = { if (value.isNotBlank()) onConfirm(value.trim()) }) { Text(confirmLabel) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -59,7 +59,7 @@ fun FolderPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("移去資料夾") },
+        title = { Text("Move to folder") },
         text = {
             Column(
                 Modifier
@@ -80,6 +80,6 @@ fun FolderPickerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("關閉") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
 }

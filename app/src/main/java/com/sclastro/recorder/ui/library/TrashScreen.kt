@@ -59,15 +59,15 @@ fun TrashScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("回收桶") },
+                title = { Text("Recycle bin") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
                     if (items.isNotEmpty()) {
-                        TextButton(onClick = { confirmEmpty = true }) { Text("全部清空") }
+                        TextButton(onClick = { confirmEmpty = true }) { Text("Empty") }
                     }
                 },
             )
@@ -79,14 +79,14 @@ fun TrashScreen(
                 .padding(padding),
         ) {
             Text(
-                text = "刪除咗嘅錄音會喺呢度保留 $retentionDays 日，之後自動清走。",
+                text = "Deleted recordings stay here for $retentionDays days, then clear automatically.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
 
             if (items.isEmpty()) {
-                EmptyState("回收桶係空嘅")
+                EmptyState("The recycle bin is empty")
             } else {
                 LazyColumn(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -119,7 +119,7 @@ fun TrashScreen(
                                         append(" · ")
                                         append(formatSize(recording.sizeBytes))
                                         recording.deletedAt?.let {
-                                            append(" · 刪除於 ")
+                                            append(" · deleted ")
                                             append(formatTimestamp(it))
                                         }
                                     },
@@ -128,10 +128,10 @@ fun TrashScreen(
                                 )
                             }
                             IconButton(onClick = { viewModel.restore(recording.id) }) {
-                                Icon(Icons.Filled.Restore, contentDescription = "還原")
+                                Icon(Icons.Filled.Restore, contentDescription = "Restore")
                             }
                             IconButton(onClick = { viewModel.deleteForever(recording.id) }) {
-                                Icon(Icons.Filled.DeleteForever, contentDescription = "永久刪除")
+                                Icon(Icons.Filled.DeleteForever, contentDescription = "Delete forever")
                             }
                         }
                     }
@@ -143,15 +143,15 @@ fun TrashScreen(
     if (confirmEmpty) {
         AlertDialog(
             onDismissRequest = { confirmEmpty = false },
-            title = { Text("清空回收桶") },
-            text = { Text("入面 ${items.size} 個錄音會永久刪除，冇得還原。") },
+            title = { Text("Empty recycle bin") },
+            text = { Text("All ${items.size} recordings will be deleted permanently. This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.emptyTrash()
                     confirmEmpty = false
-                }) { Text("清空") }
+                }) { Text("Empty") }
             },
-            dismissButton = { TextButton(onClick = { confirmEmpty = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { confirmEmpty = false }) { Text("Cancel") } },
         )
     }
 }

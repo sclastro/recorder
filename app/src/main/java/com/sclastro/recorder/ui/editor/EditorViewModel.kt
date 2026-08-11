@@ -181,7 +181,7 @@ class EditorViewModel(
                     )
                     _state.value = _state.value.copy(
                         busy = false,
-                        message = "已儲存做新檔案",
+                        message = "Saved as a new file",
                         savedId = saved?.id,
                     )
                 }

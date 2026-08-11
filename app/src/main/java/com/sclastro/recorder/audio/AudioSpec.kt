@@ -11,9 +11,9 @@ enum class AudioContainer(
     val mimeType: String,
     val lossless: Boolean,
 ) {
-    WAV("wav", "WAV (無損 PCM)", "audio/wav", true),
-    M4A("m4a", "M4A (AAC)", "audio/mp4a-latm", false),
-    OGG("ogg", "OGG (Opus)", "audio/opus", false);
+    WAV("wav", "WAV · lossless PCM", "audio/wav", true),
+    M4A("m4a", "M4A · AAC", "audio/mp4a-latm", false),
+    OGG("ogg", "OGG · Opus", "audio/opus", false);
 
     /** Opus encoding and the OGG muxer both landed in API 29. */
     val isSupported: Boolean
@@ -41,8 +41,8 @@ enum class BitDepth(val bits: Int, val label: String, val bytes: Int, val isFloa
 }
 
 enum class Channels(val count: Int, val label: String) {
-    MONO(1, "單聲道"),
-    STEREO(2, "立體聲");
+    MONO(1, "Mono"),
+    STEREO(2, "Stereo");
 
     val inMask: Int
         get() = if (this == MONO) AudioFormat.CHANNEL_IN_MONO else AudioFormat.CHANNEL_IN_STEREO
@@ -54,10 +54,10 @@ enum class Channels(val count: Int, val label: String) {
  * applies to voice.
  */
 enum class MicSource(val label: String, val hint: String) {
-    MIC("預設咪高峰", "一般用途"),
-    VOICE_RECOGNITION("人聲優先", "關閉大部分後處理，人聲最乾淨"),
-    UNPROCESSED("原始訊號", "完全冇 AGC／降噪，錄音樂必用"),
-    CAMCORDER("指向性", "用主咪，減少背景聲");
+    MIC("Default mic", "General purpose"),
+    VOICE_RECOGNITION("Voice", "Bypasses most processing — cleanest speech"),
+    UNPROCESSED("Unprocessed", "No AGC or noise suppression — use this for music"),
+    CAMCORDER("Directional", "Rear mic, less room noise");
 
     val value: Int
         get() = when (this) {
@@ -115,20 +115,20 @@ data class RecordingConfig(
 /** Ready-made combinations so the common cases are one tap away. */
 enum class Preset(val label: String, val config: RecordingConfig) {
     VOICE_MEMO(
-        "語音備忘",
+        "Voice memo",
         RecordingConfig(16000, BitDepth.PCM_16, Channels.MONO, AudioContainer.M4A, 64, MicSource.VOICE_RECOGNITION),
     ),
     MEETING(
-        "會議",
+        "Meeting",
         RecordingConfig(44100, BitDepth.PCM_16, Channels.MONO, AudioContainer.M4A, 128, MicSource.MIC, noiseSuppress = true),
     ),
     INTERVIEW(
-        "訪問",
+        "Interview",
         RecordingConfig(48000, BitDepth.PCM_24, Channels.STEREO, AudioContainer.WAV, 0, MicSource.MIC),
     ),
     MUSIC(
-        "音樂",
+        "Music",
         RecordingConfig(48000, BitDepth.PCM_24, Channels.STEREO, AudioContainer.WAV, 0, MicSource.UNPROCESSED),
     ),
-    CUSTOM("自訂", RecordingConfig()),
+    CUSTOM("Custom", RecordingConfig()),
 }

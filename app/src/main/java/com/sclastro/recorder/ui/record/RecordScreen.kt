@@ -139,7 +139,7 @@ fun RecordScreen(
             AssistChip(
                 onClick = { showQuality = true },
                 enabled = !active,
-                label = { Text("自訂") },
+                label = { Text("Custom") },
                 leadingIcon = { Icon(Icons.Filled.Tune, contentDescription = null, Modifier.size(18.dp)) },
                 colors = AssistChipDefaults.assistChipColors(),
             )
@@ -176,7 +176,7 @@ fun RecordScreen(
             if (active) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "已寫入 ${formatSize(state.bytesWritten)}",
+                    text = "${formatSize(state.bytesWritten)} written",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -194,7 +194,7 @@ fun RecordScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "存入",
+                "Save to",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -220,7 +220,7 @@ fun RecordScreen(
                 enabled = active,
                 modifier = Modifier.size(52.dp),
             ) {
-                Icon(Icons.Filled.Bookmark, contentDescription = "加書籤")
+                Icon(Icons.Filled.Bookmark, contentDescription = "Add bookmark")
             }
 
             RecordButton(
@@ -239,7 +239,7 @@ fun RecordScreen(
             ) {
                 Icon(
                     imageVector = if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                    contentDescription = if (paused) "繼續" else "暫停",
+                    contentDescription = if (paused) "Resume" else "Pause",
                 )
             }
         }
@@ -248,10 +248,10 @@ fun RecordScreen(
 
         Text(
             text = when {
-                state.bookmarksMs.isNotEmpty() && active -> "已加 ${state.bookmarksMs.size} 個書籤"
-                paused -> "已暫停"
-                active -> "錄音中"
-                else -> "撳中間個掣開始錄音"
+                state.bookmarksMs.isNotEmpty() && active -> "${state.bookmarksMs.size} bookmark(s) added"
+                paused -> "Paused"
+                active -> "Recording"
+                else -> "Tap the button to start recording"
             },
             style = MaterialTheme.typography.bodyMedium,
             color = if (active) accents.record else MaterialTheme.colorScheme.onSurfaceVariant,

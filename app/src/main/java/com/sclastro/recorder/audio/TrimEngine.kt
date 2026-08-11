@@ -24,7 +24,7 @@ object TrimEngine {
     }
 
     fun trim(source: File, destination: File, startMs: Long, endMs: Long): Outcome {
-        if (endMs <= startMs) return Outcome.Failure("選取範圍太短")
+        if (endMs <= startMs) return Outcome.Failure("Selection is too short")
         destination.parentFile?.mkdirs()
         return try {
             val outcome = if (source.extension.equals("wav", ignoreCase = true)) {
@@ -40,7 +40,7 @@ object TrimEngine {
             outcome
         } catch (e: Exception) {
             destination.delete()
-            Outcome.Failure(e.message ?: "剪輯失敗")
+            Outcome.Failure(e.message ?: "Trim failed")
         }
     }
 
@@ -59,8 +59,8 @@ object TrimEngine {
 
     private fun trimWav(source: File, destination: File, startMs: Long, endMs: Long): Outcome {
         RandomAccessFile(source, "r").use { input ->
-            val info = readWavInfo(input) ?: return Outcome.Failure("讀唔到 WAV 檔案結構")
-            if (info.blockAlign <= 0) return Outcome.Failure("WAV 格式唔正常")
+            val info = readWavInfo(input) ?: return Outcome.Failure("Could not read the WAV structure")
+            if (info.blockAlign <= 0) return Outcome.Failure("Unexpected WAV format")
 
             // Work in frames, not bytes-per-millisecond: at 44.1 kHz the latter
             // is not a whole number and the cut would drift.
@@ -68,7 +68,7 @@ object TrimEngine {
             val fromFrame = (startMs * info.sampleRate / 1000).coerceIn(0, totalFrames)
             val toFrame = (endMs * info.sampleRate / 1000).coerceIn(0, totalFrames)
             val frames = toFrame - fromFrame
-            if (frames <= 0) return Outcome.Failure("選取範圍太短")
+            if (frames <= 0) return Outcome.Failure("Selection is too short")
             val from = fromFrame * info.blockAlign
             val length = frames * info.blockAlign
 
@@ -151,7 +151,7 @@ object TrimEngine {
             extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
         } ?: run {
             extractor.release()
-            return Outcome.Failure("檔案入面搵唔到音訊軌")
+            return Outcome.Failure("No audio track in this file")
         }
         extractor.selectTrack(track)
         val format = extractor.getTrackFormat(track)
@@ -215,7 +215,7 @@ object TrimEngine {
         return if (wrote) {
             Outcome.Success(destination, lastPtsUs / 1000)
         } else {
-            Outcome.Failure("選取範圍冇音訊資料")
+            Outcome.Failure("No audio in the selected range")
         }
     }
 

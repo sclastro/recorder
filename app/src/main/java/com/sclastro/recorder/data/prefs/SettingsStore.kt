@@ -19,11 +19,11 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("recorder_settings")
 
-enum class ThemeMode(val label: String) { SYSTEM("跟系統"), LIGHT("淺色"), DARK("深色") }
+enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
 
 data class AppSettings(
     val config: RecordingConfig = RecordingConfig(),
-    val presetName: String = "會議",
+    val presetName: String = "Meeting",
     val filenameTemplate: String = FileNaming.DEFAULT_TEMPLATE,
     val askNameAfterRecording: Boolean = true,
     val defaultFolder: String = "",
@@ -47,7 +47,7 @@ class SettingsStore(private val context: Context) {
                 noiseSuppress = p[NS] == true,
                 autoGain = p[AGC] == true,
             ),
-            presetName = p[PRESET] ?: "會議",
+            presetName = p[PRESET] ?: "Meeting",
             filenameTemplate = p[TEMPLATE] ?: FileNaming.DEFAULT_TEMPLATE,
             askNameAfterRecording = p[ASK_NAME] != false,
             defaultFolder = p[DEFAULT_FOLDER] ?: "",

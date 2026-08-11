@@ -62,7 +62,7 @@ fun SaveSheet(
                 .navigationBarsPadding()
                 .imePadding(),
         ) {
-            Text("錄音已儲存", style = MaterialTheme.typography.titleLarge)
+            Text("Recording saved", style = MaterialTheme.typography.titleLarge)
             Text(
                 text = "${formatDuration(recording.durationMs)} · ${formatSize(recording.sizeBytes)} · ${recording.qualityLine()}",
                 style = MaterialTheme.typography.bodySmall,
@@ -74,13 +74,13 @@ fun SaveSheet(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("檔案名") },
+                label = { Text("Name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(Modifier.height(14.dp))
-            Text("資料夾", style = MaterialTheme.typography.labelLarge)
+            Text("Folder", style = MaterialTheme.typography.labelLarge)
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -97,15 +97,15 @@ fun SaveSheet(
                 }
                 AssistChip(
                     onClick = { showNewFolder = true },
-                    label = { Text("新增") },
+                    label = { Text("New") },
                     leadingIcon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
                 )
             }
 
             Spacer(Modifier.height(20.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("保持原樣") }
-                Button(onClick = { onConfirm(name, folder) }, modifier = Modifier.weight(1f)) { Text("儲存") }
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Keep as is") }
+                Button(onClick = { onConfirm(name, folder) }, modifier = Modifier.weight(1f)) { Text("Save") }
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -128,18 +128,18 @@ fun NewFolderDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var value by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新增資料夾") },
+        title = { Text("New folder") },
         text = {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
                 singleLine = true,
-                label = { Text("資料夾名") },
+                label = { Text("Folder name") },
             )
         },
         confirmButton = {
-            TextButton(onClick = { if (value.isNotBlank()) onConfirm(value.trim()) }) { Text("建立") }
+            TextButton(onClick = { if (value.isNotBlank()) onConfirm(value.trim()) }) { Text("Create") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

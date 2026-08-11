@@ -33,10 +33,10 @@ class RecorderApp : Application() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             RecordingService.CHANNEL_ID,
-            "錄音中",
+            "Recording",
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "錄音進行中嘅通知同控制"
+            description = "Ongoing recording and its controls"
             setShowBadge(false)
             enableVibration(false)
         }

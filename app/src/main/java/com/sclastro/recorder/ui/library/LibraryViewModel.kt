@@ -18,10 +18,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class SortOrder(val label: String) {
-    NEWEST("最新"),
-    OLDEST("最舊"),
-    LONGEST("最長"),
-    NAME("名稱"),
+    NEWEST("Newest"),
+    OLDEST("Oldest"),
+    LONGEST("Longest"),
+    NAME("Name"),
 }
 
 data class LibraryUiState(

@@ -45,13 +45,13 @@ data class Recording(
             append("${bitDepth}bit")
         }
         append(" · ")
-        append(if (channels >= 2) "立體聲" else "單聲道")
+        append(if (channels >= 2) "Stereo" else "Mono")
     }
 }
 
 data class FolderInfo(val name: String, val count: Int, val colorIndex: Int) {
     val isRoot: Boolean get() = name.isEmpty()
-    val label: String get() = if (isRoot) "未分類" else name
+    val label: String get() = if (isRoot) "Unsorted" else name
 }
 
 class RecordingRepository(
@@ -358,7 +358,7 @@ class RecordingRepository(
                 return@forEach
             }
             val probe = MediaProbe.probe(file)
-            val target = storage.uniqueFile(storage.root, "已復原_${file.nameWithoutExtension}", file.extension)
+            val target = storage.uniqueFile(storage.root, "Recovered_${file.nameWithoutExtension}", file.extension)
             if (moveFile(file, target)) {
                 moveFile(Peaks.sidecarFor(file), Peaks.sidecarFor(target))
                 if (Peaks.load(target) == null) {

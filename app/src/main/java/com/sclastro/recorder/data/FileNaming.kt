@@ -13,12 +13,12 @@ object FileNaming {
     const val DEFAULT_TEMPLATE = "{date}_{time}"
 
     val TOKENS = listOf(
-        "{date}" to "日期，例如 20260810",
-        "{time}" to "時間，例如 143205",
-        "{datetime}" to "日期時間，例如 20260810_143205",
-        "{seq}" to "流水號，例如 001",
-        "{preset}" to "預設名（會議、訪問…）",
-        "{folder}" to "資料夾名",
+        "{date}" to "Date, e.g. 20260810",
+        "{time}" to "Time, e.g. 143205",
+        "{datetime}" to "Date and time, e.g. 20260810_143205",
+        "{seq}" to "Sequence number, e.g. 001",
+        "{preset}" to "Preset name (Meeting, Interview…)",
+        "{folder}" to "Folder name",
     )
 
     fun expand(

@@ -40,11 +40,11 @@ fun formatSize(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-private val dateFormat = SimpleDateFormat("M月d日 HH:mm", Locale.getDefault())
-private val yearFormat = SimpleDateFormat("yyyy年M月d日", Locale.getDefault())
+private val timeFormat = SimpleDateFormat("HH:mm", Locale.ENGLISH)
+private val dateFormat = SimpleDateFormat("d MMM, HH:mm", Locale.ENGLISH)
+private val yearFormat = SimpleDateFormat("d MMM yyyy", Locale.ENGLISH)
 
-/** "今日 14:32" for recent items, dropping to a full date further back. */
+/** "Today 14:32" for recent items, dropping to a full date further back. */
 fun formatTimestamp(millis: Long): String {
     val now = Calendar.getInstance()
     val then = Calendar.getInstance().apply { timeInMillis = millis }
@@ -52,8 +52,8 @@ fun formatTimestamp(millis: Long): String {
     val sameDay = sameYear && now.get(Calendar.DAY_OF_YEAR) == then.get(Calendar.DAY_OF_YEAR)
     val yesterday = sameYear && now.get(Calendar.DAY_OF_YEAR) - then.get(Calendar.DAY_OF_YEAR) == 1
     return when {
-        sameDay -> "今日 " + timeFormat.format(Date(millis))
-        yesterday -> "尋日 " + timeFormat.format(Date(millis))
+        sameDay -> "Today " + timeFormat.format(Date(millis))
+        yesterday -> "Yesterday " + timeFormat.format(Date(millis))
         sameYear -> dateFormat.format(Date(millis))
         else -> yearFormat.format(Date(millis))
     }

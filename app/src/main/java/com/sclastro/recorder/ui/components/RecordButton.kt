@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -44,13 +45,13 @@ import com.sclastro.recorder.ui.theme.LocalAccents
 import kotlin.math.min
 
 /**
- * The record control: a lit orb that morphs from a circle into a rounded square
+ * The record control: a disc that morphs from a circle into a rounded square
  * once capture starts.
  *
- * The depth is drawn rather than shaded by elevation alone — an off-centre
- * radial gradient for the body, a specular highlight above it, a darkened lower
- * rim and a lit upper rim. A halo behind the orb tracks the input level so you
- * can see signal without looking at the meter.
+ * Depth is kept deliberately shallow — a gentle top-to-bottom gradient, a
+ * one-pixel lit edge and a low soft shadow. Enough to read as a physical
+ * button, not enough to look like a glass bead. A halo behind it tracks the
+ * input level so signal is visible without watching the meter.
  */
 @Composable
 fun RecordButton(
@@ -91,13 +92,13 @@ fun RecordButton(
     val corner = orbSize * cornerFraction
     val shape = RoundedCornerShape(corner)
 
-    val ringWidth = 3.dp
-    val haloAlpha = if (recording) 0.10f + smoothedLevel * 0.5f else 0f
+    val ringWidth = 2.dp
+    val haloAlpha = if (recording) 0.08f + smoothedLevel * 0.34f else 0f
 
     Box(
         modifier = modifier
             .size(diameter)
-            .semantics { contentDescription = if (recording) "停止錄音" else "開始錄音" },
+            .semantics { contentDescription = if (recording) "Stop recording" else "Start recording" },
         contentAlignment = Alignment.Center,
     ) {
         // Level halo + the static outer ring.
@@ -117,9 +118,9 @@ fun RecordButton(
                     radius = reach,
                 )
             }
-            val breathAlpha = if (recording) 0.35f + 0.25f * breathe else 0.5f
+            val breathAlpha = if (recording) 0.30f + 0.18f * breathe else 0.38f
             drawCircle(
-                color = accents.record.copy(alpha = if (enabled) breathAlpha * 0.45f else 0.15f),
+                color = accents.record.copy(alpha = if (enabled) breathAlpha * 0.55f else 0.14f),
                 radius = radius - ringWidth.toPx() / 2f,
                 style = Stroke(width = ringWidth.toPx()),
             )
@@ -128,12 +129,12 @@ fun RecordButton(
         Box(
             modifier = Modifier
                 .size(orbSize)
-                .scale(if (pressed) 0.94f else 1f)
+                .scale(if (pressed) 0.96f else 1f)
                 .shadow(
-                    elevation = if (pressed) 4.dp else 16.dp,
+                    elevation = if (pressed) 1.dp else 5.dp,
                     shape = shape,
-                    spotColor = accents.recordDeep.copy(alpha = 0.75f),
-                    ambientColor = accents.recordDeep.copy(alpha = 0.45f),
+                    spotColor = accents.recordDeep.copy(alpha = 0.34f),
+                    ambientColor = accents.recordDeep.copy(alpha = 0.18f),
                 )
                 .clip(shape)
                 .drawBehind { drawOrb(accents.recordBright, accents.record, accents.recordDeep, corner.toPx()) }
@@ -159,51 +160,34 @@ fun RecordButton(
     }
 }
 
-/** Body gradient, specular highlight, lit top rim and shaded bottom rim. */
+/** A shallow top-to-bottom gradient with a single lit top edge. */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOrb(
     bright: Color,
     base: Color,
     deep: Color,
     cornerPx: Float,
 ) {
-    val w = size.width
-    val h = size.height
+    val corner = androidx.compose.ui.geometry.CornerRadius(cornerPx, cornerPx)
 
+    // Only halfway to the light tone: a hint of curvature, not a sphere.
     drawRoundRect(
-        brush = Brush.radialGradient(
-            colors = listOf(bright, base, deep),
-            center = Offset(w * 0.34f, h * 0.26f),
-            radius = min(w, h) * 1.05f,
-        ),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerPx, cornerPx),
+        brush = Brush.verticalGradient(colors = listOf(lerp(base, bright, 0.5f), base)),
+        cornerRadius = corner,
     )
 
-    // Specular: a soft ellipse sitting just under the top-left rim.
-    val specW = w * 0.62f
-    val specH = h * 0.40f
-    drawOval(
-        brush = Brush.verticalGradient(
-            colors = listOf(Color.White.copy(alpha = 0.42f), Color.White.copy(alpha = 0f)),
-            startY = h * 0.06f,
-            endY = h * 0.06f + specH,
-        ),
-        topLeft = Offset((w - specW) / 2f, h * 0.06f),
-        size = Size(specW, specH),
-    )
-
-    // Rim: light above, shade below, so the edge reads as curved.
-    val stroke = min(w, h) * 0.045f
+    // One hairline of light along the top edge — the whole of the relief.
+    val stroke = min(size.width, size.height) * 0.018f
     drawRoundRect(
         brush = Brush.verticalGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.55f),
+                Color.White.copy(alpha = 0.30f),
                 Color.White.copy(alpha = 0f),
-                Color.Black.copy(alpha = 0.22f),
+                deep.copy(alpha = 0.18f),
             ),
         ),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerPx, cornerPx),
+        cornerRadius = corner,
         style = Stroke(width = stroke),
         topLeft = Offset(stroke / 2f, stroke / 2f),
-        size = Size(w - stroke, h - stroke),
+        size = Size(size.width - stroke, size.height - stroke),
     )
 }

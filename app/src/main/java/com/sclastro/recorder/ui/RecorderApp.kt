@@ -77,10 +77,10 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
             topBar = {
                 if (showChrome) {
                     TopAppBar(
-                        title = { Text(if (route == Routes.LIBRARY) "錄音檔案" else "錄音") },
+                        title = { Text(if (route == Routes.LIBRARY) "Recordings" else "Record") },
                         actions = {
                             IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
-                                Icon(Icons.Filled.Settings, contentDescription = "設定")
+                                Icon(Icons.Filled.Settings, contentDescription = "Settings")
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(),
@@ -94,13 +94,13 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
                             selected = route == Routes.RECORD,
                             onClick = { navController.navigateTab(Routes.RECORD) },
                             icon = { Icon(Icons.Filled.Mic, contentDescription = null) },
-                            label = { Text("錄音") },
+                            label = { Text("Record") },
                         )
                         NavigationBarItem(
                             selected = route == Routes.LIBRARY,
                             onClick = { navController.navigateTab(Routes.LIBRARY) },
                             icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
-                            label = { Text("檔案") },
+                            label = { Text("Files") },
                         )
                     }
                 }
@@ -186,5 +186,5 @@ private fun shareRecording(context: Context, recording: Recording) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, "分享錄音"))
+    context.startActivity(Intent.createChooser(intent, "Share recording"))
 }

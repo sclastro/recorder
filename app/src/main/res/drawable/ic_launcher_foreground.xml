@@ -12,18 +12,18 @@
                 <gradient
                     android:type="radial"
                     android:centerX="54" android:centerY="88" android:gradientRadius="19"
-                    android:startColor="#33000000" android:endColor="#00000000" />
+                    android:startColor="#22000000" android:endColor="#00000000" />
             </aapt:attr>
         </path>
     
         <!-- Stand -->
-        <path android:pathData="M51.5,70 h5 v12 h-5 z" android:fillColor="#8E4A32" />
+        <path android:pathData="M51.5,70 h5 v12 h-5 z" android:fillColor="#6F4B3B" />
         <path android:pathData="M41,82 h26 a2.5,2.5 0 0 1 0,5 h-26 a2.5,2.5 0 0 1 0,-5 z">
             <aapt:attr name="android:fillColor">
                 <gradient
                     android:type="linear"
                     android:startX="41" android:startY="82" android:endX="41" android:endY="87"
-                    android:startColor="#B4573A" android:endColor="#7E3E28" />
+                    android:startColor="#9A6B57" android:endColor="#6B4839" />
             </aapt:attr>
         </path>
     
@@ -37,7 +37,7 @@
                 <gradient
                     android:type="linear"
                     android:startX="35" android:startY="48" android:endX="73" android:endY="70"
-                    android:startColor="#D4795A" android:endColor="#8E4A32" />
+                    android:startColor="#BE8B75" android:endColor="#6F4B3B" />
             </aapt:attr>
         </path>
     
@@ -47,9 +47,9 @@
                 <gradient
                     android:type="radial"
                     android:centerX="48" android:centerY="28" android:gradientRadius="30"
-                    android:startColor="#F3AC90"
-                    android:centerColor="#C96442"
-                    android:endColor="#8E3F26" />
+                    android:startColor="#D3A794"
+                    android:centerColor="#A9705B"
+                    android:endColor="#79503F" />
             </aapt:attr>
         </path>
     
@@ -57,7 +57,7 @@
         <path android:pathData="M47,31 h14 M47,37 h14 M47,43 h14"
             android:strokeWidth="1.6"
             android:strokeLineCap="round"
-            android:strokeColor="#40FFFFFF"
+            android:strokeColor="#38FFFFFF"
             android:fillColor="#00000000" />
     
         <!-- Specular highlight -->
@@ -66,7 +66,7 @@
                 <gradient
                     android:type="linear"
                     android:startX="48" android:startY="26" android:endX="48" android:endY="44"
-                    android:startColor="#8CFFFFFF" android:endColor="#00FFFFFF" />
+                    android:startColor="#66FFFFFF" android:endColor="#00FFFFFF" />
             </aapt:attr>
         </path>
     

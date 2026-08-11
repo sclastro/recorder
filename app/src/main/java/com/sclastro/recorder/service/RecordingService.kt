@@ -84,7 +84,7 @@ class RecordingService : LifecycleService() {
         val engine = container.engine
         val request = container.activeRequest
         val folder = request?.folder.orEmpty()
-        val name = request?.name.orEmpty().ifBlank { "錄音" }
+        val name = request?.name.orEmpty().ifBlank { "Recording" }
         // Deliberately not lifecycleScope: stopSelf() below tears the service
         // down, and cancelling mid-commit would strand the file in .pending.
         container.appScope.launch {
@@ -142,7 +142,7 @@ class RecordingService : LifecycleService() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_mic)
-            .setContentTitle(if (paused) "錄音已暫停" else "錄音中")
+            .setContentTitle(if (paused) "Recording paused" else "Recording")
             .setContentText(formatDuration(elapsedMs))
             .setOngoing(true)
             .setSilent(true)
@@ -152,10 +152,10 @@ class RecordingService : LifecycleService() {
             .setContentIntent(openApp)
             .addAction(
                 0,
-                if (paused) "繼續" else "暫停",
+                if (paused) "Resume" else "Pause",
                 command(if (paused) ACTION_RESUME else ACTION_PAUSE),
             )
-            .addAction(0, "停止", command(ACTION_STOP))
+            .addAction(0, "Stop", command(ACTION_STOP))
             .build()
     }
 

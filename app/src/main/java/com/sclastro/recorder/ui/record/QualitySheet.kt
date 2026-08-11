@@ -53,15 +53,15 @@ fun QualitySheet(
                 .padding(horizontal = 20.dp)
                 .navigationBarsPadding(),
         ) {
-            Text("錄音質素", style = MaterialTheme.typography.titleLarge)
+            Text("Recording quality", style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "每分鐘約 ${formatSize(config.bytesPerSecond() * 60)}",
+                text = "About ${formatSize(config.bytesPerSecond() * 60)} per minute",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
             )
 
-            Section("儲存格式") {
+            Section("Format") {
                 AudioContainer.entries.filter { it.isSupported }.forEach { container ->
                     Chip(
                         label = container.label,
@@ -71,7 +71,7 @@ fun QualitySheet(
                 }
             }
 
-            Section("取樣率") {
+            Section("Sample rate") {
                 SAMPLE_RATES.forEach { rate ->
                     Chip(
                         label = if (rate % 1000 == 0) "${rate / 1000}kHz" else "%.1fkHz".format(rate / 1000f),
@@ -82,7 +82,7 @@ fun QualitySheet(
             }
 
             if (config.container == AudioContainer.WAV) {
-                Section("位元深度") {
+                Section("Bit depth") {
                     BitDepth.entries.filter { it.isSupported }.forEach { depth ->
                         Chip(
                             label = depth.label,
@@ -92,7 +92,7 @@ fun QualitySheet(
                     }
                 }
             } else {
-                Section("位元率") {
+                Section("Bitrate") {
                     BITRATES_KBPS.forEach { rate ->
                         Chip(
                             label = "$rate k",
@@ -103,7 +103,7 @@ fun QualitySheet(
                 }
             }
 
-            Section("聲道") {
+            Section("Channels") {
                 Channels.entries.forEach { channels ->
                     Chip(
                         label = channels.label,
@@ -113,7 +113,7 @@ fun QualitySheet(
                 }
             }
 
-            Section("音源") {
+            Section("Input source") {
                 MicSource.entries.forEach { source ->
                     Chip(
                         label = source.label,
@@ -129,9 +129,9 @@ fun QualitySheet(
             )
 
             Spacer(Modifier.height(8.dp))
-            ToggleRow("回音消除 (AEC)", config.echoCancel) { onChange(config.copy(echoCancel = it)) }
-            ToggleRow("降噪 (NS)", config.noiseSuppress) { onChange(config.copy(noiseSuppress = it)) }
-            ToggleRow("自動增益 (AGC)", config.autoGain) { onChange(config.copy(autoGain = it)) }
+            ToggleRow("Echo cancellation (AEC)", config.echoCancel) { onChange(config.copy(echoCancel = it)) }
+            ToggleRow("Noise suppression (NS)", config.noiseSuppress) { onChange(config.copy(noiseSuppress = it)) }
+            ToggleRow("Automatic gain (AGC)", config.autoGain) { onChange(config.copy(autoGain = it)) }
             Spacer(Modifier.height(24.dp))
         }
     }

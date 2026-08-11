@@ -84,7 +84,7 @@ fun LibraryScreen(
         OutlinedTextField(
             value = state.query,
             onValueChange = viewModel::setQuery,
-            placeholder = { Text("搵錄音、備註或資料夾") },
+            placeholder = { Text("Search recordings, notes or folders") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
@@ -108,12 +108,12 @@ fun LibraryScreen(
                 FilterChip(
                     selected = state.folderFilter == null && !state.favouritesOnly,
                     onClick = { viewModel.setFolderFilter(null) },
-                    label = { Text("全部") },
+                    label = { Text("All") },
                 )
                 FilterChip(
                     selected = state.favouritesOnly,
                     onClick = { viewModel.toggleFavouritesOnly() },
-                    label = { Text("我的最愛") },
+                    label = { Text("Favourites") },
                 )
                 state.folders.forEach { folder ->
                     FilterChip(
@@ -127,11 +127,11 @@ fun LibraryScreen(
             }
 
             IconButton(onClick = { showNewFolder = true }) {
-                Icon(Icons.Filled.CreateNewFolder, contentDescription = "新增資料夾")
+                Icon(Icons.Filled.CreateNewFolder, contentDescription = "New folder")
             }
             Box {
                 IconButton(onClick = { showSort = true }) {
-                    Icon(Icons.Filled.Sort, contentDescription = "排序")
+                    Icon(Icons.Filled.Sort, contentDescription = "Sort")
                 }
                 DropdownMenu(expanded = showSort, onDismissRequest = { showSort = false }) {
                     SortOrder.entries.forEach { order ->
@@ -145,7 +145,7 @@ fun LibraryScreen(
                     }
                     HorizontalDivider()
                     DropdownMenuItem(
-                        text = { Text("回收桶（${state.trashCount}）") },
+                        text = { Text("Recycle bin (${state.trashCount})") },
                         onClick = {
                             showSort = false
                             onOpenTrash()
@@ -158,7 +158,7 @@ fun LibraryScreen(
 
         if (state.recordings.isEmpty()) {
             EmptyState(
-                text = if (state.query.isBlank()) "重未有錄音，去「錄音」撳個掣開始啦" else "搵唔到相符嘅錄音",
+                text = if (state.query.isBlank()) "No recordings yet — tap the button on the Record tab" else "Nothing matches that search",
             )
         } else {
             LazyColumn(
@@ -189,9 +189,9 @@ fun LibraryScreen(
 
     renameTarget?.let { target ->
         TextInputDialog(
-            title = "重新命名",
+            title = "Rename",
             initial = target.displayName,
-            confirmLabel = "改名",
+            confirmLabel = "Rename",
             onConfirm = {
                 viewModel.rename(target.id, it)
                 renameTarget = null
@@ -305,39 +305,39 @@ private fun RecordingRow(
         IconButton(onClick = onFavourite) {
             Icon(
                 imageVector = if (recording.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                contentDescription = "我的最愛",
+                contentDescription = "Favourite",
                 tint = if (recording.favorite) accents.warning else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         Box {
             IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                Icon(Icons.Filled.MoreVert, contentDescription = "More")
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("剪輯") },
+                    text = { Text("Trim") },
                     leadingIcon = { Icon(Icons.Filled.ContentCut, contentDescription = null) },
                     onClick = { menuOpen = false; onEdit() },
                 )
                 DropdownMenuItem(
-                    text = { Text("重新命名") },
+                    text = { Text("Rename") },
                     leadingIcon = { Icon(Icons.Filled.DriveFileRenameOutline, contentDescription = null) },
                     onClick = { menuOpen = false; onRename() },
                 )
                 DropdownMenuItem(
-                    text = { Text("移去資料夾") },
+                    text = { Text("Move to folder") },
                     leadingIcon = { Icon(Icons.Filled.DriveFileMove, contentDescription = null) },
                     onClick = { menuOpen = false; onMove() },
                 )
                 DropdownMenuItem(
-                    text = { Text("分享") },
+                    text = { Text("Share") },
                     leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
                     onClick = { menuOpen = false; onShare() },
                 )
                 HorizontalDivider()
                 DropdownMenuItem(
-                    text = { Text("刪除") },
+                    text = { Text("Delete") },
                     leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                     onClick = { menuOpen = false; onDelete() },
                 )

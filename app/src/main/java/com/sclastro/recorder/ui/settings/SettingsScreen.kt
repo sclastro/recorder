@@ -81,10 +81,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("設定") },
+                title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -97,20 +97,20 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
         ) {
-            SectionTitle("檔案命名")
+            SectionTitle("File naming")
             OutlinedTextField(
                 value = template,
                 onValueChange = {
                     template = it
                     viewModel.setTemplate(it)
                 },
-                label = { Text("檔名範本") },
+                label = { Text("Name template") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "預覽：" + FileNaming.expand(template, preset = settings.presetName) + ".${settings.config.container.ext}",
+                text = "Preview: " + FileNaming.expand(template, preset = settings.presetName) + ".${settings.config.container.ext}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -125,21 +125,21 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(8.dp))
             ToggleRow(
-                title = "錄完之後問我改名",
-                subtitle = "關咗就直接用範本命名，唔會彈視窗",
+                title = "Ask me to name it after recording",
+                subtitle = "Off: the template name is used and nothing pops up",
                 checked = settings.askNameAfterRecording,
                 onChange = viewModel::setAskName,
             )
             ToggleRow(
-                title = "錄音時保持螢幕唔熄",
-                subtitle = "唔想熄螢幕都繼續錄嘅話唔使開，後台一樣會錄",
+                title = "Keep the screen on while recording",
+                subtitle = "Not required — recording continues with the screen off",
                 checked = settings.keepScreenOn,
                 onChange = viewModel::setKeepScreenOn,
             )
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
-            SectionTitle("外觀")
+            SectionTitle("Appearance")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThemeMode.entries.forEach { mode ->
                     FilterChip(
@@ -152,7 +152,7 @@ fun SettingsScreen(
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
-            SectionTitle("回收桶")
+            SectionTitle("Recycle bin")
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -161,14 +161,14 @@ fun SettingsScreen(
                     FilterChip(
                         selected = settings.trashRetentionDays == days,
                         onClick = { viewModel.setRetention(days) },
-                        label = { Text("$days 日") },
+                        label = { Text("$days days") },
                     )
                 }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
-            SectionTitle("儲存位置")
+            SectionTitle("Storage location")
             Text(
                 text = viewModel.storageRoot,
                 style = MaterialTheme.typography.bodySmall,
@@ -176,7 +176,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "資料夾就係真實嘅目錄，插上電腦可以直接睇到同一個結構。",
+                text = "Folders are real directories — plug into a computer and you see the same structure.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
