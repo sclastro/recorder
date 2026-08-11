@@ -112,24 +112,25 @@ class EditorViewModel(
         )
     }
 
-    fun nudgeStart(deltaMs: Long) {
+    fun nudgeStart(deltaMs: Long) = moveStart(_state.value.startMs + deltaMs)
+
+    fun nudgeEnd(deltaMs: Long) = moveEnd(_state.value.endMs + deltaMs)
+
+    fun setStartHere() = moveStart(_state.value.positionMs)
+
+    fun setEndHere() = moveEnd(_state.value.positionMs)
+
+    /** Clamped so the two handles can never cross, whatever the clip length. */
+    private fun moveStart(target: Long) {
         val s = _state.value
-        _state.value = s.copy(startMs = (s.startMs + deltaMs).coerceIn(0, s.endMs - 100))
+        val highest = (s.endMs - MIN_SELECTION_MS).coerceAtLeast(0)
+        _state.value = s.copy(startMs = target.coerceIn(0, highest))
     }
 
-    fun nudgeEnd(deltaMs: Long) {
+    private fun moveEnd(target: Long) {
         val s = _state.value
-        _state.value = s.copy(endMs = (s.endMs + deltaMs).coerceIn(s.startMs + 100, s.durationMs))
-    }
-
-    fun setStartHere() {
-        val s = _state.value
-        _state.value = s.copy(startMs = s.positionMs.coerceIn(0, s.endMs - 100))
-    }
-
-    fun setEndHere() {
-        val s = _state.value
-        _state.value = s.copy(endMs = s.positionMs.coerceIn(s.startMs + 100, s.durationMs))
+        val lowest = (s.startMs + MIN_SELECTION_MS).coerceAtMost(s.durationMs)
+        _state.value = s.copy(endMs = target.coerceIn(lowest, s.durationMs.coerceAtLeast(lowest)))
     }
 
     fun previewSelection() {
@@ -203,6 +204,8 @@ class EditorViewModel(
     }
 
     companion object {
+        private const val MIN_SELECTION_MS = 100L
+
         val Factory = containerViewModelFactory { container, app -> EditorViewModel(container, app) }
     }
 }

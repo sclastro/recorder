@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -129,56 +132,59 @@ fun WaveformScrubber(
     bookmarks: List<Float> = emptyList(),
 ) {
     val accents = LocalAccents.current
-    var widthPx by remember { mutableFloatStateOf(1f) }
     val animatedProgress by animateFloatAsState(progress, tween(120), label = "progress")
 
-    // Which handle a drag grabbed; -1 start, 1 end, 0 none.
-    var dragTarget by remember { mutableFloatStateOf(0f) }
+    // Gesture lambdas outlive the composition that created them. Without these
+    // they keep reading the selection captured when the pointer input was first
+    // installed, so moving one handle snaps the other back to where it started.
+    val currentSelection by rememberUpdatedState(selection)
+    val currentOnSeek by rememberUpdatedState(onSeek)
+    val currentOnSelectionChange by rememberUpdatedState(onSelectionChange)
+
+    // Which handle this drag grabbed; -1 start, 1 end, 0 none. Chosen once at
+    // drag start so the handle does not swap mid-gesture.
+    var dragTarget by remember { mutableIntStateOf(0) }
 
     Box(
         modifier
             .fillMaxWidth()
             .height(height)
-            .pointerInput(selection == null, onSeek == null) {
-                if (selection == null) {
-                    detectTapGestures { offset ->
-                        onSeek?.invoke((offset.x / size.width).coerceIn(0f, 1f))
-                    }
-                } else {
-                    detectTapGestures { offset ->
-                        onSeek?.invoke((offset.x / size.width).coerceIn(0f, 1f))
-                    }
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    currentOnSeek?.invoke((offset.x / size.width).coerceIn(0f, 1f))
                 }
             }
-            .pointerInput(selection != null) {
-                if (selection == null) {
-                    detectDragGestures { change, _ ->
-                        onSeek?.invoke((change.position.x / size.width).coerceIn(0f, 1f))
-                    }
-                } else {
-                    detectDragGestures(
-                        onDragStart = { start ->
-                            val fraction = (start.x / size.width).coerceIn(0f, 1f)
-                            dragTarget = if (abs(fraction - selection.start) <=
-                                abs(fraction - selection.endInclusive)
-                            ) -1f else 1f
-                        },
-                        onDragEnd = { dragTarget = 0f },
-                    ) { change, _ ->
-                        val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                        val current = selection
-                        val updated = if (dragTarget < 0f) {
-                            fraction.coerceAtMost(current.endInclusive - MIN_SELECTION)..current.endInclusive
+            // Horizontal only, so a vertically scrolling parent still works.
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { start ->
+                        val active = currentSelection
+                        dragTarget = if (active == null) {
+                            0
                         } else {
-                            current.start..fraction.coerceAtLeast(current.start + MIN_SELECTION)
+                            val fraction = (start.x / size.width).coerceIn(0f, 1f)
+                            if (abs(fraction - active.start) <= abs(fraction - active.endInclusive)) -1 else 1
                         }
-                        onSelectionChange?.invoke(updated)
+                    },
+                    onDragEnd = { dragTarget = 0 },
+                    onDragCancel = { dragTarget = 0 },
+                ) { change, _ ->
+                    val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                    val active = currentSelection
+                    if (active == null) {
+                        currentOnSeek?.invoke(fraction)
+                    } else if (dragTarget < 0) {
+                        val limit = (active.endInclusive - MIN_SELECTION).coerceIn(0f, 1f)
+                        currentOnSelectionChange?.invoke(fraction.coerceIn(0f, limit)..active.endInclusive)
+                    } else {
+                        val limit = (active.start + MIN_SELECTION).coerceIn(0f, 1f)
+                        currentOnSelectionChange?.invoke(active.start..fraction.coerceIn(limit, 1f))
                     }
+                    change.consume()
                 }
             },
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            widthPx = size.width
             val columns = (size.width / 4.dp.toPx()).roundToInt().coerceIn(16, 600)
             val samples = peaks?.let { Peaks.resample(it, columns) } ?: FloatArray(columns) { 0.12f }
             val step = size.width / columns

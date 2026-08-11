@@ -17,13 +17,13 @@
         </path>
     
         <!-- Stand -->
-        <path android:pathData="M51.5,70 h5 v12 h-5 z" android:fillColor="#8A3B35" />
+        <path android:pathData="M51.5,70 h5 v12 h-5 z" android:fillColor="#95302B" />
         <path android:pathData="M41,82 h26 a2.5,2.5 0 0 1 0,5 h-26 a2.5,2.5 0 0 1 0,-5 z">
             <aapt:attr name="android:fillColor">
                 <gradient
                     android:type="linear"
                     android:startX="41" android:startY="82" android:endX="41" android:endY="87"
-                    android:startColor="#B8524A" android:endColor="#7E332E" />
+                    android:startColor="#C43F38" android:endColor="#8A2823" />
             </aapt:attr>
         </path>
     
@@ -37,7 +37,7 @@
                 <gradient
                     android:type="linear"
                     android:startX="35" android:startY="48" android:endX="73" android:endY="70"
-                    android:startColor="#DF8279" android:endColor="#8A3B35" />
+                    android:startColor="#E86259" android:endColor="#95302B" />
             </aapt:attr>
         </path>
     
@@ -47,9 +47,9 @@
                 <gradient
                     android:type="radial"
                     android:centerX="48" android:centerY="28" android:gradientRadius="30"
-                    android:startColor="#F0A9A1"
-                    android:centerColor="#CB5A52"
-                    android:endColor="#8E3A34" />
+                    android:startColor="#F49A93"
+                    android:centerColor="#D8453E"
+                    android:endColor="#9C2B26" />
             </aapt:attr>
         </path>
     

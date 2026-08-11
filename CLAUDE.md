@@ -29,7 +29,7 @@ Both themes are defined in `ui/theme/`; add colours to `Palette` and expose them
 through `RecorderAccents` rather than hard-coding values in screens.
 
 - Ground `#FAF9F5`, cards `#FFFFFF`, sunk `#F2F0E9`, hairline `#E9E6DC`
-- Record accent — soft red `#CB5A52` (gradient to `#E58C84`, deep `#8E3A34`)
+- Record accent — red `#D8453E` (gradient to `#F08079`, deep `#9C2B26`)
 - Playback accent — sage `#6D8278`; bookmarks `#9E8154`
 - Clipping/destructive — crimson `#8C1D18`, deliberately much deeper than the
   record accent so a peak warning reads as an escalation, not more of the same

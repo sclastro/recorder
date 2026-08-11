@@ -9,8 +9,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
@@ -18,6 +23,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,8 +32,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -93,15 +101,42 @@ fun EditorScreen(
                 },
             )
         },
+        // Pinned, so the action is reachable no matter how tall the controls get.
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+                Column(Modifier.navigationBarsPadding()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Button(
+                        onClick = { showNameDialog = true },
+                        enabled = !state.busy && state.endMs > state.startMs,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .height(52.dp),
+                    ) {
+                        if (state.busy) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text("Save as new file")
+                        }
+                    }
+                }
+            }
+        },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
         ) {
             Text(
-                text = "Drag the handles to choose the part to keep. WAV is cut to the exact sample; compressed formats are not re-encoded, so the cut lands on the nearest audio frame.",
+                text = "Drag the handles to choose the part to keep. The original file is never changed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -129,18 +164,17 @@ fun EditorScreen(
                     onSelectionChange = viewModel::setSelection,
                 )
 
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("Start ${formatDurationPrecise(state.startMs)}", style = MonoSmall)
-                    Text(
-                        text = "Length ${formatDurationPrecise(state.endMs - state.startMs)}",
-                        style = MonoSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    Readout("Start", formatDurationPrecise(state.startMs), TextAlign.Start, Modifier.weight(1f))
+                    Readout(
+                        label = "Length",
+                        value = formatDurationPrecise(state.endMs - state.startMs),
+                        align = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                        highlight = true,
                     )
-                    Text("End ${formatDurationPrecise(state.endMs)}", style = MonoSmall)
+                    Readout("End", formatDurationPrecise(state.endMs), TextAlign.End, Modifier.weight(1f))
                 }
             }
 
@@ -148,12 +182,13 @@ fun EditorScreen(
 
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(onClick = viewModel::setStartHere, modifier = Modifier.weight(1f)) {
                     Text("Set start")
                 }
-                IconButton(onClick = viewModel::previewSelection) {
+                FilledTonalIconButton(onClick = viewModel::previewSelection, modifier = Modifier.size(48.dp)) {
                     Icon(
                         imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         contentDescription = "Preview selection",
@@ -164,35 +199,23 @@ fun EditorScreen(
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            // Two short rows rather than one long one — five controls side by
+            // side overflow on a phone and squeeze the last label into a column
+            // of single characters.
+            NudgeRow(
+                label = "Start",
+                onMinus = { viewModel.nudgeStart(-100) },
+                onPlus = { viewModel.nudgeStart(100) },
+            )
             Spacer(Modifier.height(8.dp))
+            NudgeRow(
+                label = "End",
+                onMinus = { viewModel.nudgeEnd(-100) },
+                onPlus = { viewModel.nudgeEnd(100) },
+            )
 
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Nudge", style = MaterialTheme.typography.labelMedium)
-                TextButton(onClick = { viewModel.nudgeStart(-100) }) { Text("Start −0.1s") }
-                TextButton(onClick = { viewModel.nudgeStart(100) }) { Text("Start +0.1s") }
-                TextButton(onClick = { viewModel.nudgeEnd(-100) }) { Text("End −0.1s") }
-                TextButton(onClick = { viewModel.nudgeEnd(100) }) { Text("End +0.1s") }
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            Button(
-                onClick = { showNameDialog = true },
-                enabled = !state.busy && state.endMs > state.startMs,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                if (state.busy) {
-                    CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Text("Save as new file")
-                }
-            }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -208,5 +231,54 @@ fun EditorScreen(
             },
             onDismiss = { showNameDialog = false },
         )
+    }
+}
+
+@Composable
+private fun Readout(
+    label: String,
+    value: String,
+    align: TextAlign,
+    modifier: Modifier = Modifier,
+    highlight: Boolean = false,
+) {
+    Column(modifier) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = align,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = value,
+            style = MonoSmall,
+            maxLines = 1,
+            color = if (highlight) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            textAlign = align,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun NudgeRow(label: String, onMinus: () -> Unit, onPlus: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(56.dp),
+        )
+        OutlinedButton(onClick = onMinus, modifier = Modifier.weight(1f)) { Text("−0.1s") }
+        OutlinedButton(onClick = onPlus, modifier = Modifier.weight(1f)) { Text("+0.1s") }
     }
 }

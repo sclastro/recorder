@@ -24,10 +24,10 @@ object Palette {
     val InkFaint = Color(0xFF9A978E)
 
     /** Record accent. */
-    val Ember = Color(0xFFCB5A52)
-    val EmberLight = Color(0xFFE58C84)
-    val EmberDeep = Color(0xFF8E3A34)
-    val EmberWash = Color(0xFFFAE8E6)
+    val Ember = Color(0xFFD8453E)
+    val EmberLight = Color(0xFFF08079)
+    val EmberDeep = Color(0xFF9C2B26)
+    val EmberWash = Color(0xFFFCE7E5)
 
     /** Playback accent — desaturated sage, so play never looks like record. */
     val Sage = Color(0xFF6D8278)
@@ -50,10 +50,10 @@ object Palette {
     val ChalkMuted = Color(0xFFA8A49B)
     val ChalkFaint = Color(0xFF75726B)
 
-    val EmberNight = Color(0xFFDF8279)
-    val EmberNightLight = Color(0xFFF0A9A1)
-    val EmberNightDeep = Color(0xFF8E3A34)
-    val EmberNightWash = Color(0xFF3A211F)
+    val EmberNight = Color(0xFFEE7A72)
+    val EmberNightLight = Color(0xFFFBA49C)
+    val EmberNightDeep = Color(0xFF96302B)
+    val EmberNightWash = Color(0xFF3E1E1C)
     val SageNight = Color(0xFF8FA89C)
     val SageNightWash = Color(0xFF222B27)
     val OchreNight = Color(0xFFC4A579)
