@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sclastro.recorder.audio.AudioCapabilities
 import com.sclastro.recorder.audio.AudioContainer
 import com.sclastro.recorder.audio.BITRATES_KBPS
 import com.sclastro.recorder.audio.BitDepth
@@ -76,6 +77,7 @@ fun QualitySheet(
                     Chip(
                         label = if (rate % 1000 == 0) "${rate / 1000}kHz" else "%.1fkHz".format(rate / 1000f),
                         selected = config.sampleRate == rate,
+                        enabled = AudioCapabilities.supportsSampleRate(config, rate),
                         onClick = { onChange(config.copy(sampleRate = rate)) },
                     )
                 }
@@ -87,6 +89,7 @@ fun QualitySheet(
                         Chip(
                             label = depth.label,
                             selected = config.bitDepth == depth,
+                            enabled = AudioCapabilities.supportsBitDepth(config, depth),
                             onClick = { onChange(config.copy(bitDepth = depth)) },
                         )
                     }
@@ -108,6 +111,7 @@ fun QualitySheet(
                     Chip(
                         label = channels.label,
                         selected = config.channels == channels,
+                        enabled = AudioCapabilities.supportsChannels(config, channels),
                         onClick = { onChange(config.copy(channels = channels)) },
                     )
                 }
@@ -122,6 +126,15 @@ fun QualitySheet(
                     )
                 }
             }
+            if (!AudioCapabilities.supports(config)) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "This device cannot record that combination. Greyed-out options are unavailable at the current settings.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             Text(
                 text = config.source.hint,
                 style = MaterialTheme.typography.bodySmall,
@@ -156,10 +169,16 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Chip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
     FilterChip(
         selected = selected,
         onClick = onClick,
+        enabled = enabled,
         label = { Text(label) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,

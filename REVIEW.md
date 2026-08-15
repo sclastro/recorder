@@ -187,3 +187,14 @@ LaunchedEffect(Unit) { viewModel.refresh() }   // → repository.reconcile()
 一個取捨要記住：`skipSilenceEnabled` 係 ExoPlayer 專有嘅設定，隔住
 `MediaController` 撳唔到，所以「Skip silence」個掣暫時移除咗。要恢復就要喺
 session 加一個 custom command 傳落去。
+
+第三批：
+
+- ✅ P1 批量操作 —— 長按揀多個，頂部出選取列，可以一次過分享／移動／刪除
+- ✅ P1 滑動刪除 + Undo snackbar（選取模式下停用，避免誤觸）
+- ✅ P1 裝置能力探測 —— `AudioCapabilities` 用 `getMinBufferSize` 查實際支援，
+  質素設定入面唔支援嘅取樣率／位元深度／聲道直接灰咗，組合唔得會出提示
+- ✅ P1 排序加咗「Largest」
+
+下一批候選：記憶播放位置、睡眠計時器、播放時加刪書籤、來電自動暫停、
+搜尋清除掣、About 頁。

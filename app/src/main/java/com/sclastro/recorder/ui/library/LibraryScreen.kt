@@ -2,6 +2,8 @@ package com.sclastro.recorder.ui.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Delete
@@ -41,6 +44,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
@@ -48,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,6 +71,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.data.Recording
 import com.sclastro.recorder.ui.components.MiniWaveform
 import com.sclastro.recorder.ui.theme.LocalAccents
+import kotlinx.coroutines.launch
 import com.sclastro.recorder.util.formatDuration
 import com.sclastro.recorder.util.formatSize
 import com.sclastro.recorder.util.formatTimestamp
@@ -71,12 +82,27 @@ fun LibraryScreen(
     onOpen: (Recording) -> Unit,
     onEdit: (Recording) -> Unit,
     onShare: (Recording) -> Unit,
+    onShareMany: (List<Recording>) -> Unit,
     onOpenTrash: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val selected by viewModel.selected.collectAsStateWithLifecycle()
+    val snackbars = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var moveSelection by remember { mutableStateOf(false) }
+
+    // Deleting is recoverable, but only if the user is told how.
+    fun announceTrashed(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        scope.launch {
+            val label = if (ids.size == 1) "Moved to the bin" else "${ids.size} moved to the bin"
+            val result = snackbars.showSnackbar(message = label, actionLabel = "Undo")
+            if (result == SnackbarResult.ActionPerformed) viewModel.restoreAll(ids)
+        }
+    }
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
     var moveTarget by remember { mutableStateOf<Recording?>(null) }
     var showFolders by remember { mutableStateOf(false) }
@@ -95,6 +121,32 @@ fun LibraryScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
+        if (selected.isNotEmpty()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = viewModel::clearSelection) {
+                    Icon(Icons.Filled.Close, contentDescription = "Clear selection")
+                }
+                Text(
+                    text = "${selected.size} selected",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { onShareMany(viewModel.selectedRecordings()) }) {
+                    Icon(Icons.Filled.Share, contentDescription = "Share selected")
+                }
+                IconButton(onClick = { moveSelection = true }) {
+                    Icon(Icons.Filled.DriveFileMove, contentDescription = "Move selected")
+                }
+                IconButton(onClick = { announceTrashed(viewModel.trashSelected()) }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete selected")
+                }
+            }
+        } else {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -157,6 +209,7 @@ fun LibraryScreen(
                 }
             }
         }
+        }
 
         if (state.recordings.isEmpty()) {
             EmptyState(
@@ -181,7 +234,20 @@ fun LibraryScreen(
                     RecordingRow(
                         recording = recording,
                         peaksProvider = { viewModel.peaksFor(recording) },
-                        onClick = { onOpen(recording) },
+                        selected = recording.id in selected,
+                        selectionMode = selected.isNotEmpty(),
+                        onSwipedAway = {
+                            viewModel.moveToTrash(recording.id)
+                            announceTrashed(listOf(recording.id))
+                        },
+                        onLongClick = { viewModel.toggleSelected(recording.id) },
+                        onClick = {
+                            if (selected.isNotEmpty()) {
+                                viewModel.toggleSelected(recording.id)
+                            } else {
+                                onOpen(recording)
+                            }
+                        },
                         onFavourite = { viewModel.toggleFavourite(recording) },
                         onRename = { renameTarget = recording },
                         onMove = { moveTarget = recording },
@@ -232,10 +298,15 @@ fun LibraryScreen(
 
 }
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun RecordingRow(
     recording: Recording,
     peaksProvider: suspend () -> ByteArray?,
+    selected: Boolean,
+    selectionMode: Boolean,
+    onSwipedAway: () -> Unit,
+    onLongClick: () -> Unit,
     onClick: () -> Unit,
     onFavourite: () -> Unit,
     onRename: () -> Unit,
@@ -250,13 +321,52 @@ private fun RecordingRow(
         value = peaksProvider()
     }
 
+    // Swiping a row bins it, which is reversible from the snackbar. Disabled
+    // while picking rows out, where a sideways drag is easy to do by accident.
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (!selectionMode && value != SwipeToDismissBoxValue.Settled) {
+                onSwipedAway()
+                true
+            } else {
+                false
+            }
+        },
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        gesturesEnabled = !selectionMode,
+        backgroundContent = {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(accents.danger.copy(alpha = 0.12f))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = null, tint = accents.danger)
+            }
+        },
+    ) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .background(
+                if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerLowest
+                },
+            )
+            .border(
+                1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                RoundedCornerShape(16.dp),
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -351,6 +461,7 @@ private fun RecordingRow(
                 )
             }
         }
+    }
     }
 }
 

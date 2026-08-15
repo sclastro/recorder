@@ -22,6 +22,7 @@ enum class SortOrder(val label: String) {
     OLDEST("Oldest"),
     LONGEST("Longest"),
     NAME("Name"),
+    LARGEST("Largest"),
 }
 
 data class LibraryUiState(
@@ -81,11 +82,45 @@ class LibraryViewModel(
                     SortOrder.OLDEST -> list.sortedBy { it.createdAt }
                     SortOrder.LONGEST -> list.sortedByDescending { it.durationMs }
                     SortOrder.NAME -> list.sortedBy { it.displayName }
+                    SortOrder.LARGEST -> list.sortedByDescending { it.sizeBytes }
                 }
             }
 
         LibraryUiState(filtered, folders, q, folder, fav, order, trashCount)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
+
+    /** Ids picked out by long-press, for acting on several recordings at once. */
+    private val _selected = MutableStateFlow<Set<Long>>(emptySet())
+    val selected: StateFlow<Set<Long>> = _selected
+
+    fun toggleSelected(id: Long) {
+        _selected.value = _selected.value.let { if (id in it) it - id else it + id }
+    }
+
+    fun clearSelection() { _selected.value = emptySet() }
+
+    fun selectedRecordings(): List<Recording> {
+        val ids = _selected.value
+        return uiState.value.recordings.filter { it.id in ids }
+    }
+
+    /** Returns the ids that went to the bin, so the caller can offer an undo. */
+    fun trashSelected(): List<Long> {
+        val ids = _selected.value.toList()
+        _selected.value = emptySet()
+        viewModelScope.launch { ids.forEach { container.repository.moveToTrash(it) } }
+        return ids
+    }
+
+    fun moveSelected(folder: String) {
+        val ids = _selected.value.toList()
+        _selected.value = emptySet()
+        viewModelScope.launch { ids.forEach { container.repository.moveToFolder(it, folder) } }
+    }
+
+    fun restoreAll(ids: List<Long>) = viewModelScope.launch {
+        ids.forEach { container.repository.restoreFromTrash(it) }
+    }
 
     val trash: StateFlow<List<Recording>> = container.repository.observeTrash()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

@@ -119,6 +119,7 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
                             onOpen = { navController.navigate(Routes.player(it.id)) },
                             onEdit = { navController.navigate(Routes.editor(it.id)) },
                             onShare = { shareRecording(context, it) },
+                            onShareMany = { shareRecordings(context, it) },
                             onOpenTrash = { navController.navigate(Routes.TRASH) },
                         )
                     }
@@ -169,6 +170,29 @@ private fun androidx.navigation.NavHostController.navigateTab(route: String) {
         restoreState = true
     }
 }
+
+private fun shareRecordings(context: Context, recordings: List<Recording>) {
+    val existing = recordings.filter { it.exists }
+    when {
+        existing.isEmpty() -> return
+        existing.size == 1 -> shareRecording(context, existing.first())
+        else -> {
+            val uris = ArrayList(existing.map { uriFor(context, it) })
+            val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "audio/*"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share recordings"))
+        }
+    }
+}
+
+private fun uriFor(context: Context, recording: Recording) = FileProvider.getUriForFile(
+    context,
+    "${'$'}{context.packageName}.fileprovider",
+    recording.file,
+)
 
 private fun shareRecording(context: Context, recording: Recording) {
     if (!recording.exists) return
