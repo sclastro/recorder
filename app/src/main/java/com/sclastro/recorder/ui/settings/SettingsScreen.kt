@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.AppContainer
+import com.sclastro.recorder.BuildConfig
 import com.sclastro.recorder.data.FileNaming
 import com.sclastro.recorder.data.prefs.AppSettings
 import com.sclastro.recorder.data.prefs.ThemeMode
@@ -177,6 +178,15 @@ fun SettingsScreen(
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "Folders are real directories. Android hides this location from other apps on the phone, but connecting to a computer over USB shows the same structure.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+            SectionTitle("About")
+            Text(
+                text = "Recorder ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

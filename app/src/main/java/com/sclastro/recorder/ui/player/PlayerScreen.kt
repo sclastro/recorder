@@ -1,5 +1,7 @@
 package com.sclastro.recorder.ui.player
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -18,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Forward10
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
@@ -34,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -58,8 +63,9 @@ import com.sclastro.recorder.util.formatSize
 import com.sclastro.recorder.util.formatTimestamp
 
 private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f)
+private val SLEEP_MINUTES = listOf(5, 15, 30, 60)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
     recordingId: Long,
@@ -203,24 +209,68 @@ fun PlayerScreen(
                 }
             }
 
-            recording?.bookmarks?.takeIf { it.isNotEmpty() }?.let { bookmarks ->
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.Bookmark, contentDescription = null, Modifier.size(18.dp))
-                    bookmarks.forEach { position ->
-                        FilterChip(
-                            selected = false,
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    text = state.sleepTimerMinutes?.let { formatDuration(state.sleepTimerRemainingMs) } ?: "Sleep",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SLEEP_MINUTES.forEach { minutes ->
+                    FilterChip(
+                        selected = state.sleepTimerMinutes == minutes,
+                        onClick = {
+                            viewModel.setSleepTimer(if (state.sleepTimerMinutes == minutes) null else minutes)
+                        },
+                        label = { Text("${minutes}m") },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AssistChip(
+                    onClick = viewModel::addBookmarkHere,
+                    label = { Text("Bookmark here") },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Bookmark, contentDescription = null, Modifier.size(18.dp))
+                    },
+                )
+                // Long-press removes; tapping jumps.
+                recording?.bookmarks.orEmpty().forEach { position ->
+                    Box(
+                        Modifier.combinedClickable(
+                            onClick = { viewModel.jumpToBookmark(position) },
+                            onLongClick = { viewModel.removeBookmark(position) },
+                        ),
+                    ) {
+                        SuggestionChip(
                             onClick = { viewModel.jumpToBookmark(position) },
                             label = { Text(formatDuration(position)) },
                         )
                     }
                 }
+            }
+            if (recording?.bookmarks.orEmpty().isNotEmpty()) {
+                Text(
+                    text = "Long-press a bookmark to remove it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
 
             Spacer(Modifier.height(20.dp))

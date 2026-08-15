@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
@@ -33,6 +34,16 @@ import kotlinx.coroutines.launch
 class RecordingService : LifecycleService() {
 
     private var wakeLock: PowerManager.WakeLock? = null
+
+    /**
+     * Set when a phone call paused us, so the resume is automatic and we never
+     * un-pause a recording the user paused by hand.
+     *
+     * Audio mode is the permission-free way to notice a call — TelephonyManager
+     * would need READ_PHONE_STATE, which is a lot to ask of a voice recorder.
+     */
+    private var pausedByCall = false
+    private var modeListener: AudioManager.OnModeChangedListener? = null
 
     /**
      * Watches engine state to refresh the notification. Started only once
@@ -66,8 +77,14 @@ class RecordingService : LifecycleService() {
         startForegroundNow()
 
         when (action) {
-            ACTION_PAUSE -> engine.pause()
-            ACTION_RESUME -> engine.resume()
+            ACTION_PAUSE -> {
+                pausedByCall = false
+                engine.pause()
+            }
+            ACTION_RESUME -> {
+                pausedByCall = false
+                engine.resume()
+            }
             ACTION_STOP -> stopAndSave()
             ACTION_DISCARD -> discard()
         }
@@ -111,6 +128,40 @@ class RecordingService : LifecycleService() {
         } else {
             acquireWakeLock()
             watchEngineState()
+            watchCallState()
+        }
+    }
+
+    private fun watchCallState() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || modeListener != null) return
+        val audioManager = getSystemService(AudioManager::class.java) ?: return
+        val listener = AudioManager.OnModeChangedListener { mode ->
+            val inCall = mode == AudioManager.MODE_IN_CALL ||
+                mode == AudioManager.MODE_IN_COMMUNICATION ||
+                mode == AudioManager.MODE_RINGTONE
+            val engine = container.engine
+            when {
+                inCall && engine.state.value.status == RecorderEngine.Status.RECORDING -> {
+                    pausedByCall = true
+                    engine.pause()
+                }
+                !inCall && pausedByCall -> {
+                    pausedByCall = false
+                    engine.resume()
+                }
+            }
+        }
+        modeListener = listener
+        runCatching { audioManager.addOnModeChangedListener(mainExecutor, listener) }
+    }
+
+    private fun stopWatchingCallState() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val listener = modeListener ?: return
+        modeListener = null
+        pausedByCall = false
+        runCatching {
+            getSystemService(AudioManager::class.java)?.removeOnModeChangedListener(listener)
         }
     }
 
@@ -160,6 +211,7 @@ class RecordingService : LifecycleService() {
     override fun onDestroy() {
         notificationJob?.cancel()
         notificationJob = null
+        stopWatchingCallState()
         releaseWakeLock()
         super.onDestroy()
     }

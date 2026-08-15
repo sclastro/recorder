@@ -38,7 +38,9 @@ data class PlayerUiState(
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val speed: Float = 1f,
-    val skipSilence: Boolean = false,
+    /** Minutes until playback pauses itself, or null when no timer is set. */
+    val sleepTimerMinutes: Int? = null,
+    val sleepTimerRemainingMs: Long = 0,
 ) {
     val progress: Float
         get() = if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
@@ -70,6 +72,8 @@ class PlayerViewModel(
     private var ticker: Job? = null
     private var noteJob: Job? = null
     private var pendingNote: String? = null
+    private var sleepJob: Job? = null
+    private var positionSaveJob: Job? = null
 
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -158,6 +162,15 @@ class PlayerViewModel(
                 .build(),
         )
         current.prepare()
+
+        // Pick up where this recording was left, unless that was effectively
+        // the very start or the very end.
+        val resume = recording.lastPositionMs
+        val duration = recording.durationMs
+        if (resume > RESUME_THRESHOLD_MS && (duration <= 0 || resume < duration - RESUME_THRESHOLD_MS)) {
+            current.seekTo(resume)
+            _state.value = _state.value.copy(positionMs = resume)
+        }
     }
 
     private fun startTicker() {
@@ -170,11 +183,70 @@ class PlayerViewModel(
                             positionMs = player.currentPosition.coerceAtLeast(0),
                             durationMs = player.duration.takeIf { it > 0 } ?: _state.value.durationMs,
                         )
+                        schedulePositionSave()
                     }
                 }
                 delay(60)
             }
         }
+    }
+
+    /** Writes the resume point at most once every few seconds. */
+    private fun schedulePositionSave() {
+        if (positionSaveJob?.isActive == true) return
+        positionSaveJob = viewModelScope.launch {
+            delay(POSITION_SAVE_INTERVAL_MS)
+            persistPosition()
+        }
+    }
+
+    private fun persistPosition() {
+        val recording = _state.value.recording ?: return
+        val position = _state.value.positionMs
+        container.appScope.launch { container.repository.setPlaybackPosition(recording.id, position) }
+    }
+
+    // ---- Sleep timer --------------------------------------------------------
+
+    fun setSleepTimer(minutes: Int?) {
+        sleepJob?.cancel()
+        if (minutes == null) {
+            _state.value = _state.value.copy(sleepTimerMinutes = null, sleepTimerRemainingMs = 0)
+            return
+        }
+        val totalMs = minutes * 60_000L
+        _state.value = _state.value.copy(sleepTimerMinutes = minutes, sleepTimerRemainingMs = totalMs)
+        sleepJob = viewModelScope.launch {
+            var remaining = totalMs
+            while (remaining > 0) {
+                delay(1_000)
+                remaining -= 1_000
+                _state.value = _state.value.copy(sleepTimerRemainingMs = remaining.coerceAtLeast(0))
+            }
+            controller?.pause()
+            _state.value = _state.value.copy(sleepTimerMinutes = null, sleepTimerRemainingMs = 0)
+        }
+    }
+
+    // ---- Bookmarks ----------------------------------------------------------
+
+    fun addBookmarkHere() {
+        val recording = _state.value.recording ?: return
+        val at = _state.value.positionMs
+        if (recording.bookmarks.any { kotlin.math.abs(it - at) < BOOKMARK_MERGE_MS }) return
+        updateBookmarks(recording.bookmarks + at)
+    }
+
+    fun removeBookmark(positionMs: Long) {
+        val recording = _state.value.recording ?: return
+        updateBookmarks(recording.bookmarks - positionMs)
+    }
+
+    private fun updateBookmarks(bookmarks: List<Long>) {
+        val recording = _state.value.recording ?: return
+        val sorted = bookmarks.sorted()
+        _state.value = _state.value.copy(recording = recording.copy(bookmarks = sorted))
+        viewModelScope.launch { container.repository.setBookmarks(recording.id, sorted) }
     }
 
     fun togglePlay() {
@@ -203,13 +275,6 @@ class PlayerViewModel(
     fun setSpeed(speed: Float) {
         controller?.playbackParameters = PlaybackParameters(speed)
         _state.value = _state.value.copy(speed = speed)
-    }
-
-    fun toggleSkipSilence() {
-        // Only an ExoPlayer knows this one; through a controller it is a no-op,
-        // so keep the flag purely visual until the session exposes a command.
-        val next = !_state.value.skipSilence
-        _state.value = _state.value.copy(skipSilence = next)
     }
 
     fun jumpToBookmark(positionMs: Long) {
@@ -245,7 +310,10 @@ class PlayerViewModel(
     override fun onCleared() {
         ticker?.cancel()
         noteJob?.cancel()
+        sleepJob?.cancel()
+        positionSaveJob?.cancel()
         flushNote()
+        persistPosition()
         // Release the controller, not the player: the session keeps playing.
         controller?.removeListener(listener)
         controller = null
@@ -256,6 +324,9 @@ class PlayerViewModel(
 
     companion object {
         private const val NOTE_WRITE_DELAY_MS = 600L
+        private const val POSITION_SAVE_INTERVAL_MS = 5_000L
+        private const val RESUME_THRESHOLD_MS = 3_000L
+        private const val BOOKMARK_MERGE_MS = 500L
 
         val Factory = containerViewModelFactory { container, app -> PlayerViewModel(container, app) }
     }

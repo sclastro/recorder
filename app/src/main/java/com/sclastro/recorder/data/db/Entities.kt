@@ -31,6 +31,8 @@ data class RecordingEntity(
     val folderBeforeDelete: String? = null,
     /** Comma-separated millisecond offsets. */
     val bookmarks: String = "",
+    /** Where playback got to, so a long recording can be resumed. */
+    val lastPositionMs: Long = 0,
 )
 
 @Entity(tableName = "folders")

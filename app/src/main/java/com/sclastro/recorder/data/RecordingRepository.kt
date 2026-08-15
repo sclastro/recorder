@@ -31,6 +31,7 @@ data class Recording(
     val favorite: Boolean,
     val note: String,
     val bookmarks: List<Long>,
+    val lastPositionMs: Long,
     val deletedAt: Long?,
 ) {
     val extension: String get() = file.extension
@@ -184,6 +185,17 @@ class RecordingRepository(
 
     suspend fun setNote(id: Long, note: String) = withContext(Dispatchers.IO) {
         recordingDao.byId(id)?.let { recordingDao.update(it.copy(note = note)) }
+    }
+
+    suspend fun setBookmarks(id: Long, bookmarks: List<Long>) = withContext(Dispatchers.IO) {
+        recordingDao.byId(id)?.let {
+            recordingDao.update(it.copy(bookmarks = bookmarks.sorted().joinToString(",")))
+        }
+    }
+
+    /** Remembers where playback got to; zero means "start from the beginning". */
+    suspend fun setPlaybackPosition(id: Long, positionMs: Long) = withContext(Dispatchers.IO) {
+        recordingDao.byId(id)?.let { recordingDao.update(it.copy(lastPositionMs = positionMs)) }
     }
 
     // ---- Recycle bin --------------------------------------------------------
@@ -415,6 +427,7 @@ class RecordingRepository(
         favorite = favorite,
         note = note,
         bookmarks = bookmarks.split(",").mapNotNull { it.trim().toLongOrNull() },
+        lastPositionMs = lastPositionMs,
         deletedAt = deletedAt,
     )
 

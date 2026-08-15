@@ -114,6 +114,13 @@ fun LibraryScreen(
             onValueChange = viewModel::setQuery,
             placeholder = { Text("Search recordings, notes or folders") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (state.query.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.setQuery("") }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier
