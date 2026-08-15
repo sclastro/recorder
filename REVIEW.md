@@ -176,4 +176,14 @@ LaunchedEffect(Unit) { viewModel.refresh() }   // → repository.reconcile()
 - ✅ 9 死碼清晒（`_message`、`observeRecording`、`togglePause`、`MiniWaveform.progress`）
 - ✅ 額外：回收桶升做獨立按鈕連數量徽章；AAC/Opus 唔再顯示誤導嘅 `16bit`；書籤單複數
 
-未做：3（背景播放）、4（reconcile 時機）—— 分別係下一批。
+第二批：
+
+- ✅ 3 背景播放 —— 播放搬入 `PlaybackService`（Media3 `MediaSessionService`），
+  ViewModel 改用 `MediaController` 連過去。離開畫面、熄螢幕都繼續播；通知欄、
+  鎖屏、藍牙耳機、車機全部控制到；拔耳機自動暫停；音訊焦點交返俾系統處理。
+- ✅ 4 reconcile 改成只喺 App 啟動同用戶下拉重新整理先做（檔案庫加咗 pull-to-refresh）
+- ✅ 順帶：開長錄音時波形解碼有 spinner，唔再係空白
+
+一個取捨要記住：`skipSilenceEnabled` 係 ExoPlayer 專有嘅設定，隔住
+`MediaController` 撳唔到，所以「Skip silence」個掣暫時移除咗。要恢復就要喺
+session 加一個 custom command 傳落去。

@@ -116,7 +116,20 @@ class LibraryViewModel(
         if (folderFilter.value == from) folderFilter.value = to
     }
 
-    fun refresh() = viewModelScope.launch { container.repository.reconcile() }
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing
+
+    /**
+     * Rescans the directory tree. This used to run on every visit to the tab,
+     * which meant a full disk walk — and a decode of any unrecognised file —
+     * each time the user switched tabs. It now runs at app start and whenever
+     * the user pulls to refresh.
+     */
+    fun refresh() = viewModelScope.launch {
+        _refreshing.value = true
+        container.repository.reconcile()
+        _refreshing.value = false
+    }
 
     suspend fun peaksFor(recording: Recording): ByteArray? = withContext(Dispatchers.IO) {
         Peaks.load(recording.file)

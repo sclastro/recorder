@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -132,6 +134,19 @@ fun PlayerScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(14.dp))
+                if (state.loadingPeaks) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(128.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                } else {
                 WaveformScrubber(
                     peaks = state.peaks,
                     progress = state.progress,
@@ -140,6 +155,7 @@ fun PlayerScreen(
                         state.durationMs.takeIf { it > 0 }?.let { bookmark.toFloat() / it }
                     },
                 )
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -185,11 +201,6 @@ fun PlayerScreen(
                         label = { Text(if (speed == 1f) "1x" else "${speed}x") },
                     )
                 }
-                FilterChip(
-                    selected = state.skipSilence,
-                    onClick = viewModel::toggleSkipSilence,
-                    label = { Text("Skip silence") },
-                )
             }
 
             recording?.bookmarks?.takeIf { it.isNotEmpty() }?.let { bookmarks ->

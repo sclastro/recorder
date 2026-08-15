@@ -40,10 +40,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -64,6 +65,7 @@ import com.sclastro.recorder.util.formatDuration
 import com.sclastro.recorder.util.formatSize
 import com.sclastro.recorder.util.formatTimestamp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     onOpen: (Recording) -> Unit,
@@ -74,12 +76,11 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
     var moveTarget by remember { mutableStateOf<Recording?>(null) }
     var showFolders by remember { mutableStateOf(false) }
     var showSort by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) { viewModel.refresh() }
 
     Column(modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -162,6 +163,11 @@ fun LibraryScreen(
                 text = if (state.query.isBlank()) "No recordings yet — tap the button on the Record tab" else "Nothing matches that search",
             )
         } else {
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
             LazyColumn(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = 16.dp,
@@ -184,6 +190,7 @@ fun LibraryScreen(
                         onDelete = { viewModel.moveToTrash(recording.id) },
                     )
                 }
+            }
             }
         }
     }
