@@ -35,9 +35,6 @@ class RecordViewModel(
     val folders: StateFlow<List<FolderInfo>> = container.repository.observeFolders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message
-
     /** Folder the next recording lands in; defaults to the saved preference. */
     private val _targetFolder = MutableStateFlow<String?>(null)
     val targetFolder: StateFlow<String?> = _targetFolder
@@ -46,10 +43,7 @@ class RecordViewModel(
         _targetFolder.value = folder
     }
 
-    fun consumeMessage() {
-        _message.value = null
-        container.engine.clearError()
-    }
+    fun dismissError() = container.engine.clearError()
 
     fun applyPreset(preset: Preset) {
         viewModelScope.launch {
@@ -84,6 +78,13 @@ class RecordViewModel(
     }
 
     fun addBookmark() = container.engine.addBookmark()
+
+    /** Stops without saving; the partial file is deleted. */
+    fun discardRecording(context: Context) {
+        if (container.engine.state.value.isActive) {
+            RecordingService.send(context, RecordingService.ACTION_DISCARD)
+        }
+    }
 
     private fun startRecording(context: Context) {
         viewModelScope.launch {

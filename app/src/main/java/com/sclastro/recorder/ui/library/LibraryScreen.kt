@@ -21,7 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -57,7 +59,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.data.Recording
 import com.sclastro.recorder.ui.components.MiniWaveform
-import com.sclastro.recorder.ui.record.NewFolderDialog
 import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.util.formatDuration
 import com.sclastro.recorder.util.formatSize
@@ -75,7 +76,7 @@ fun LibraryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
     var moveTarget by remember { mutableStateOf<Recording?>(null) }
-    var showNewFolder by remember { mutableStateOf(false) }
+    var showFolders by remember { mutableStateOf(false) }
     var showSort by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.refresh() }
@@ -126,8 +127,17 @@ fun LibraryScreen(
                 }
             }
 
-            IconButton(onClick = { showNewFolder = true }) {
-                Icon(Icons.Filled.CreateNewFolder, contentDescription = "New folder")
+            IconButton(onClick = { showFolders = true }) {
+                Icon(Icons.Filled.FolderOpen, contentDescription = "Manage folders")
+            }
+            IconButton(onClick = onOpenTrash) {
+                BadgedBox(
+                    badge = {
+                        if (state.trashCount > 0) Badge { Text(state.trashCount.toString()) }
+                    },
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Recycle bin")
+                }
             }
             Box {
                 IconButton(onClick = { showSort = true }) {
@@ -143,15 +153,6 @@ fun LibraryScreen(
                             },
                         )
                     }
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text("Recycle bin (${state.trashCount})") },
-                        onClick = {
-                            showSort = false
-                            onOpenTrash()
-                        },
-                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
-                    )
                 }
             }
         }
@@ -212,15 +213,16 @@ fun LibraryScreen(
         )
     }
 
-    if (showNewFolder) {
-        NewFolderDialog(
-            onConfirm = {
-                viewModel.createFolder(it)
-                showNewFolder = false
-            },
-            onDismiss = { showNewFolder = false },
+    if (showFolders) {
+        FolderManagerDialog(
+            folders = state.folders.filterNot { it.isRoot }.map { it.name to it.label },
+            onCreate = viewModel::createFolder,
+            onRename = viewModel::renameFolder,
+            onDelete = viewModel::deleteFolder,
+            onDismiss = { showFolders = false },
         )
     }
+
 }
 
 @Composable
@@ -275,7 +277,6 @@ private fun RecordingRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MiniWaveform(
                     peaks = peaks,
-                    progress = 0f,
                     modifier = Modifier
                         .width(84.dp)
                         .height(22.dp),

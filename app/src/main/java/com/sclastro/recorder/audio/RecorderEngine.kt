@@ -158,10 +158,6 @@ class RecorderEngine {
         }
     }
 
-    fun togglePause() {
-        if (_state.value.status == Status.PAUSED) resume() else pause()
-    }
-
     /** Marks the current position; the timestamp is kept with the recording. */
     fun addBookmark() {
         val s = _state.value

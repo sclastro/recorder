@@ -176,7 +176,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Folders are real directories — plug into a computer and you see the same structure.",
+                text = "Folders are real directories. Android hides this location from other apps on the phone, but connecting to a computer over USB shows the same structure.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -88,7 +88,6 @@ fun LiveWaveform(
 @Composable
 fun MiniWaveform(
     peaks: ByteArray?,
-    progress: Float,
     modifier: Modifier = Modifier,
     columns: Int = 44,
 ) {
@@ -104,9 +103,8 @@ fun MiniWaveform(
         samples.forEachIndexed { i, value ->
             val x = i * step + step / 2f
             val half = max(barWidth / 2f, value * (size.height / 2f))
-            val played = (i + 0.5f) / samples.size <= progress
             drawLine(
-                color = if (played) accents.playback else accents.waveformIdle,
+                color = accents.waveformIdle,
                 start = Offset(x, centerY - half),
                 end = Offset(x, centerY + half),
                 strokeWidth = barWidth,

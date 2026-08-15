@@ -19,7 +19,7 @@
 
 **檔案管理**
 - 檔名範本（`{date}`、`{time}`、`{seq}`、`{preset}`、`{folder}`），錄完可即時改名
-- 資料夾分類（真實目錄，插上電腦見到同一個結構）、我的最愛、備註
+- 資料夾分類（真實目錄；Android 11 之後手機上面嘅檔案管理員睇唔到 `Android/data`，但插電腦行 MTP 見到同一個結構）、我的最愛、備註
 - 搜尋（檔名／備註／資料夾）、排序（最新／最舊／最長／名稱）
 - **回收桶**：刪除唔會即刻冇，預設保留 30 日（7–90 日可調），隨時還原
 - 啟動時同檔案系統對帳，喺外面改動都跟得返
@@ -49,7 +49,7 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 1. 開 App 會問咪高峰權限同通知權限，兩個都要俾。
 2. **Samsung 電池優化好惡**：設定 → 應用程式 → Recorder → 電池 → 揀「不受限制」，唔係長時間後台錄音可能被系統殺。
-3. 錄音檔案放喺 `Android/data/com.sclastro.recorder/files/Recordings/`，資料夾就係真實目錄。
+3. 錄音檔案放喺 `Android/data/com.sclastro.recorder/files/Recordings/`，資料夾就係真實目錄。留意 Android 11 之後系統唔准第三方檔案管理員 browse 呢個位置，要插電腦先睇到。
 
 ## 開發
 

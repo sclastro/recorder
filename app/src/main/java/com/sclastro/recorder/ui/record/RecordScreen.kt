@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,7 +29,9 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -37,6 +40,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,6 +83,7 @@ fun RecordScreen(
 
     var showQuality by remember { mutableStateOf(false) }
     var pendingStart by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
 
     val requiredPermissions = remember {
         buildList {
@@ -114,12 +119,16 @@ fun RecordScreen(
     val paused = state.status == RecorderEngine.Status.PAUSED
     val levelFraction = PcmMath.dbToFraction(state.peakDb)
 
-    Column(
-        modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    Column(modifier.fillMaxSize()) {
+        // Everything above the transport scrolls, so a large system font or a
+        // short screen can never push the record button out of reach.
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         // Presets — one tap to a whole capture configuration.
         Row(
             Modifier
@@ -208,8 +217,16 @@ fun RecordScreen(
             }
         }
 
-        Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(20.dp))
+        }
 
+        // Fixed transport.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -248,7 +265,8 @@ fun RecordScreen(
 
         Text(
             text = when {
-                state.bookmarksMs.isNotEmpty() && active -> "${state.bookmarksMs.size} bookmark(s) added"
+                state.bookmarksMs.isNotEmpty() && active ->
+                    if (state.bookmarksMs.size == 1) "1 bookmark added" else "${state.bookmarksMs.size} bookmarks added"
                 paused -> "Paused"
                 active -> "Recording"
                 else -> "Tap the button to start recording"
@@ -258,20 +276,45 @@ fun RecordScreen(
             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
         )
 
-        Spacer(Modifier.height(16.dp))
+        AnimatedVisibility(visible = active) {
+            TextButton(
+                onClick = { confirmDiscard = true },
+                colors = ButtonDefaults.textButtonColors(contentColor = accents.danger),
+            ) {
+                Text("Discard recording")
+            }
+        }
 
         AnimatedVisibility(visible = state.error != null) {
             Box(Modifier.padding(bottom = 12.dp)) {
                 Snackbar { Text(state.error.orEmpty()) }
             }
         }
+
+        Spacer(Modifier.height(8.dp))
+        }
     }
 
     LaunchedEffect(state.error) {
         if (state.error != null) {
             kotlinx.coroutines.delay(4000)
-            viewModel.consumeMessage()
+            viewModel.dismissError()
         }
+    }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text("Discard this recording?") },
+            text = { Text("The audio captured so far will be deleted and nothing will be saved.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDiscard = false
+                    viewModel.discardRecording(context)
+                }) { Text("Discard") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep recording") } },
+        )
     }
 
     if (showQuality) {

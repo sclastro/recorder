@@ -64,6 +64,8 @@ class PlayerViewModel(
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
 
     private var ticker: Job? = null
+    private var noteJob: Job? = null
+    private var pendingNote: String? = null
 
     fun load(id: Long) {
         viewModelScope.launch {
@@ -135,21 +137,42 @@ class PlayerViewModel(
         _state.value = _state.value.copy(positionMs = positionMs)
     }
 
+    /**
+     * Persisting on every keystroke meant a database write per character. The
+     * text lives in state immediately; the write lands once typing pauses, and
+     * is flushed on an application-scoped coroutine if the screen goes away
+     * first.
+     */
     fun setNote(note: String) {
         val recording = _state.value.recording ?: return
-        viewModelScope.launch {
+        _state.value = _state.value.copy(recording = recording.copy(note = note))
+        pendingNote = note
+        noteJob?.cancel()
+        noteJob = viewModelScope.launch {
+            delay(NOTE_WRITE_DELAY_MS)
             container.repository.setNote(recording.id, note)
-            _state.value = _state.value.copy(recording = container.repository.byId(recording.id))
+            pendingNote = null
         }
+    }
+
+    private fun flushNote() {
+        val recording = _state.value.recording ?: return
+        val note = pendingNote ?: return
+        pendingNote = null
+        container.appScope.launch { container.repository.setNote(recording.id, note) }
     }
 
     override fun onCleared() {
         ticker?.cancel()
+        noteJob?.cancel()
+        flushNote()
         player.release()
         super.onCleared()
     }
 
     companion object {
+        private const val NOTE_WRITE_DELAY_MS = 600L
+
         val Factory = containerViewModelFactory { container, app -> PlayerViewModel(container, app) }
     }
 }

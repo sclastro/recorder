@@ -12,10 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -40,9 +43,27 @@ fun LevelMeter(
 ) {
     val accents = LocalAccents.current
     val rms by animateFloatAsState(PcmMath.dbToFraction(rmsDb), tween(70), label = "rms")
+
+    // Peak-hold decays with wall-clock time, driven from a frame loop rather
+    // than written during composition — a composition-time write would make the
+    // decay rate depend on how often the screen happens to recompose, and could
+    // keep re-triggering itself.
+    val currentPeak by rememberUpdatedState(PcmMath.dbToFraction(peakDb))
     var peakHold by remember { mutableFloatStateOf(0f) }
-    val peak = PcmMath.dbToFraction(peakDb)
-    peakHold = if (peak >= peakHold) peak else (peakHold - PEAK_DECAY).coerceAtLeast(peak)
+    LaunchedEffect(Unit) {
+        var lastFrameMs = 0L
+        while (true) {
+            withFrameMillis { frameMs ->
+                val elapsed = if (lastFrameMs == 0L) 0L else frameMs - lastFrameMs
+                lastFrameMs = frameMs
+                val decayed = (peakHold - PEAK_DECAY_PER_MS * elapsed).coerceAtLeast(0f)
+                val next = maxOf(currentPeak, decayed)
+                // Skip the write when nothing moved, so an idle meter does not
+                // recompose every frame.
+                if (next != peakHold) peakHold = next
+            }
+        }
+    }
 
     Column(modifier) {
         Canvas(
@@ -95,4 +116,5 @@ fun LevelMeter(
     }
 }
 
-private const val PEAK_DECAY = 0.012f
+/** Full scale to silence in roughly four seconds. */
+private const val PEAK_DECAY_PER_MS = 0.00025f

@@ -69,6 +69,7 @@ class RecordingService : LifecycleService() {
             ACTION_PAUSE -> engine.pause()
             ACTION_RESUME -> engine.resume()
             ACTION_STOP -> stopAndSave()
+            ACTION_DISCARD -> discard()
         }
         watchEngineState()
         return START_NOT_STICKY
@@ -142,6 +143,15 @@ class RecordingService : LifecycleService() {
                 val saved = container.repository.commitRecording(result, folder, name)
                 container.justSaved.value = saved
             }
+            container.activeRequest = null
+            stopSelf()
+        }
+    }
+
+    /** Throws the capture away: the pending file is deleted, nothing is filed. */
+    private fun discard() {
+        container.appScope.launch {
+            container.engine.cancel()
             container.activeRequest = null
             stopSelf()
         }
@@ -252,6 +262,7 @@ class RecordingService : LifecycleService() {
         const val ACTION_PAUSE = "com.sclastro.recorder.PAUSE"
         const val ACTION_RESUME = "com.sclastro.recorder.RESUME"
         const val ACTION_STOP = "com.sclastro.recorder.STOP"
+        const val ACTION_DISCARD = "com.sclastro.recorder.DISCARD"
         private const val TAG = "RecordingService"
         private const val MAX_RECORDING_MS = 12L * 60 * 60 * 1000
 

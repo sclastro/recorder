@@ -40,7 +40,9 @@ data class Recording(
         append(format)
         append(" · ")
         append(if (sampleRate % 1000 == 0) "${sampleRate / 1000}kHz" else "%.1fkHz".format(sampleRate / 1000f))
-        if (bitDepth > 0) {
+        // Bit depth only means something for PCM; quoting it for AAC or Opus
+        // describes the decoder, not the file.
+        if (bitDepth > 0 && format.equals("WAV", ignoreCase = true)) {
             append(" · ")
             append("${bitDepth}bit")
         }
@@ -67,9 +69,6 @@ class RecordingRepository(
         recordingDao.observeTrash().map { rows -> rows.map { it.toDomain() } }
 
     fun observeTrashCount(): Flow<Int> = recordingDao.observeTrashCount()
-
-    fun observeRecording(id: Long): Flow<Recording?> =
-        recordingDao.observeById(id).map { it?.toDomain() }
 
     fun observeFolders(): Flow<List<FolderInfo>> =
         combine(folderDao.observeAll(), recordingDao.observeAll()) { folders, recordings ->

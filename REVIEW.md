@@ -160,3 +160,20 @@ LaunchedEffect(Unit) { viewModel.refresh() }   // → repository.reconcile()
 3. **P0 第 4（reconcile 時機）+ P1 批量操作 + 滑動刪除** —— 檔案多咗就會需要
 4. **P1 裝置能力探測 + 來電暫停** —— 錄音可靠性
 5. 之後先至到 SAF、分割合併、轉文字嗰啲大功能
+
+---
+
+## 已完成（commit 待補）
+
+第一批 P0 細項全部做咗：
+
+- ✅ 1 電平錶 composition 期間寫 state → 改用 frame loop，衰減按真實時間
+- ✅ 2 錄音頁上半部可以 scroll，錄音掣固定喺底部
+- ✅ 5 備註 debounce 600ms 先寫 DB，離開畫面即刻 flush
+- ✅ 6 錄音途中可以「Discard recording」（有確認對話框）
+- ✅ 7 資料夾可以新增／改名／刪除（Files 頁資料夾圖示 → Manage folders）
+- ✅ 8 儲存位置嘅講法修正咗（設定頁 + README）
+- ✅ 9 死碼清晒（`_message`、`observeRecording`、`togglePause`、`MiniWaveform.progress`）
+- ✅ 額外：回收桶升做獨立按鈕連數量徽章；AAC/Opus 唔再顯示誤導嘅 `16bit`；書籤單複數
+
+未做：3（背景播放）、4（reconcile 時機）—— 分別係下一批。
