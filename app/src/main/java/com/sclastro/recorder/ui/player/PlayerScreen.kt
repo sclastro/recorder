@@ -160,6 +160,8 @@ fun PlayerScreen(
                         bookmarks = recording?.bookmarks.orEmpty().mapNotNull { bookmark ->
                             state.durationMs.takeIf { it > 0 }?.let { bookmark.toFloat() / it }
                         },
+                        label = "Waveform, ${formatDuration(state.positionMs)} of " +
+                            formatDuration(state.durationMs),
                     )
                 }
             }

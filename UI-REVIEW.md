@@ -158,3 +158,25 @@ FilledIconButton 應該用 sage。
   百分之一秒淨係喺剪輯頁同播放頁嘅位置讀數度出現，嗰度先有意義。
 - ✅ **C4 播放色** —— 播放頁個大播放掣由紅轉 sage（`accents.playback`），mini
   player 嘅進度線同播放掣一樣。紅色而家淨係代表錄音。
+
+第二批（A3 / C2 / C5）：
+
+- ✅ **A3 列表播放狀態同進度** —— `MiniWaveform` 攞返個 `progress` 參數（第一批
+  我當死碼刪咗，而家真係有數據）。播緊嗰行：名前面一個 sage 喇叭／暫停圖示、
+  邊框轉 sage、迷你波形跟住 mini player 實時填色。聽咗一半嘅行：填到
+  `lastPositionMs` 嗰個位，後面加個 sage「45%」。頭尾三秒唔當「聽過」，同播放
+  續播嗰條規則一致 —— 呢個判斷抽咗做 `Recording.listenedFraction`，有六個單元測試。
+- ✅ **C2 波形無障礙** —— `WaveformScrubber` 加咗 `contentDescription`、
+  `progressBarRangeInfo` 同 `setProgress` action，TalkBack 開住都拉得動（拖 canvas
+  本身係碰唔到嘅）。描述由呼叫方傳實際時間入嚟：播放頁「Waveform, 02:05 of 10:30」、
+  剪輯頁「Waveform, keeping 00:03.20 to 04:11.50」。`LiveWaveform` 有靜態描述；
+  `MiniWaveform` 明確標成裝飾（`clearAndSetSemantics`），因為同一行嘅文字已經講晒。
+- ✅ **C5 空狀態** —— 由一行灰字變成圖示 + 標題 + 一句解釋 + 一個掣，而且分四種
+  情況講唔同嘢：未有錄音（「Start recording」跳去錄音頁）、搜尋冇結果（「Clear
+  search」）、我的最愛係空（「Show all」）、資料夾係空（「Show all」）。回收桶空
+  嘅時候同樣，順帶收起上面嗰句重複嘅保留期說明。
+
+順帶執咗一個真 bug：`RecorderApp.uriFor()` 個 FileProvider authority 寫成
+`"${'$'}{context.packageName}.fileprovider"`，即係字面上嘅 `${context.packageName}
+.fileprovider`。多選分享兩個以上檔案會直接 crash。單選嗰條路徑係另一段正常嘅碼，
+所以之前試唔出。而家兩條路徑共用同一個 helper。

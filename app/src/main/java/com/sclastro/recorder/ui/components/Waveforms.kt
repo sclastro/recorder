@@ -24,6 +24,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sclastro.recorder.audio.Peaks
@@ -45,7 +51,13 @@ fun LiveWaveform(
     gap: Dp = 2.dp,
 ) {
     val accents = LocalAccents.current
-    Canvas(modifier.fillMaxWidth().height(96.dp)) {
+    val description = if (active) "Live input waveform" else "Input waveform, idle"
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .semantics { contentDescription = description },
+    ) {
         if (levels.isEmpty()) return@Canvas
         val barPx = barWidth.toPx()
         val gapPx = gap.toPx()
@@ -84,18 +96,26 @@ fun LiveWaveform(
     }
 }
 
-/** Compact waveform for list rows; draws whatever peak data is already cached. */
+/**
+ * Compact waveform for list rows; draws whatever peak data is already cached.
+ * [progress] fills the played portion, so a row can show how far through the
+ * recording the listener got. Decorative to TalkBack — the row's own text
+ * already says everything this conveys.
+ */
 @Composable
 fun MiniWaveform(
     peaks: ByteArray?,
     modifier: Modifier = Modifier,
     columns: Int = 44,
+    progress: Float = 0f,
+    progressColor: Color? = null,
 ) {
     val accents = LocalAccents.current
+    val played = progressColor ?: accents.playback
     val samples = remember(peaks, columns) {
         peaks?.let { Peaks.resample(it, columns) } ?: FloatArray(columns) { 0.18f }
     }
-    Canvas(modifier) {
+    Canvas(modifier.clearAndSetSemantics { }) {
         if (samples.isEmpty()) return@Canvas
         val step = size.width / samples.size
         val barWidth = (step * 0.55f).coerceAtLeast(1.2f)
@@ -103,8 +123,9 @@ fun MiniWaveform(
         samples.forEachIndexed { i, value ->
             val x = i * step + step / 2f
             val half = max(barWidth / 2f, value * (size.height / 2f))
+            val fraction = (i + 0.5f) / samples.size
             drawLine(
-                color = accents.waveformIdle,
+                color = if (fraction <= progress) played else accents.waveformIdle,
                 start = Offset(x, centerY - half),
                 end = Offset(x, centerY + half),
                 strokeWidth = barWidth,
@@ -128,6 +149,8 @@ fun WaveformScrubber(
     onSeek: ((Float) -> Unit)? = null,
     onSelectionChange: ((ClosedFloatingPointRange<Float>) -> Unit)? = null,
     bookmarks: List<Float> = emptyList(),
+    /** What TalkBack announces; callers know the real times, this only has fractions. */
+    label: String = "Waveform",
 ) {
     val accents = LocalAccents.current
     val animatedProgress by animateFloatAsState(progress, tween(120), label = "progress")
@@ -179,6 +202,18 @@ fun WaveformScrubber(
                         currentOnSelectionChange?.invoke(active.start..fraction.coerceIn(limit, 1f))
                     }
                     change.consume()
+                }
+            }
+            // Dragging a canvas is unreachable with TalkBack on, so expose the
+            // position as a range and let the seek action move it.
+            .semantics {
+                contentDescription = label
+                progressBarRangeInfo = ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
+                if (onSeek != null && selection == null) {
+                    setProgress { target ->
+                        onSeek(target.coerceIn(0f, 1f))
+                        true
+                    }
                 }
             },
     ) {

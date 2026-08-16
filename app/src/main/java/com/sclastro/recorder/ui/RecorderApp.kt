@@ -40,6 +40,7 @@ import com.sclastro.recorder.ui.editor.EditorScreen
 import com.sclastro.recorder.ui.library.LibraryScreen
 import com.sclastro.recorder.ui.library.TrashScreen
 import com.sclastro.recorder.ui.player.MiniPlayerBar
+import com.sclastro.recorder.ui.player.MiniPlayerViewModel
 import com.sclastro.recorder.ui.player.PlayerScreen
 import com.sclastro.recorder.ui.record.RecordScreen
 import com.sclastro.recorder.ui.settings.SettingsScreen
@@ -75,6 +76,11 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
         val showChrome = route == Routes.RECORD || route == Routes.LIBRARY
         val context = LocalContext.current
 
+        // Held here rather than inside MiniPlayerBar so the library can mark the
+        // row that is playing without opening a controller of its own.
+        val miniPlayer: MiniPlayerViewModel = viewModel(factory = MiniPlayerViewModel.Factory)
+        val nowPlaying by miniPlayer.state.collectAsStateWithLifecycle()
+
         Scaffold(
             topBar = {
                 if (showChrome) {
@@ -93,7 +99,10 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
                 if (showChrome) {
                     Column {
                         // Background playback needs somewhere in-app to see and stop it.
-                        MiniPlayerBar(onOpen = { navController.navigate(Routes.player(it)) })
+                        MiniPlayerBar(
+                            onOpen = { navController.navigate(Routes.player(it)) },
+                            viewModel = miniPlayer,
+                        )
                         NavigationBar {
                             NavigationBarItem(
                                 selected = route == Routes.RECORD,
@@ -127,6 +136,8 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
                             onShare = { shareRecording(context, it) },
                             onShareMany = { shareRecordings(context, it) },
                             onOpenTrash = { navController.navigate(Routes.TRASH) },
+                            onStartRecording = { navController.navigateTab(Routes.RECORD) },
+                            nowPlaying = nowPlaying,
                         )
                     }
 
@@ -196,17 +207,13 @@ private fun shareRecordings(context: Context, recordings: List<Recording>) {
 
 private fun uriFor(context: Context, recording: Recording) = FileProvider.getUriForFile(
     context,
-    "${'$'}{context.packageName}.fileprovider",
+    "${context.packageName}.fileprovider",
     recording.file,
 )
 
 private fun shareRecording(context: Context, recording: Recording) {
     if (!recording.exists) return
-    val uri = FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        recording.file,
-    )
+    val uri = uriFor(context, recording)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = when (recording.extension.lowercase()) {
             "wav" -> "audio/wav"

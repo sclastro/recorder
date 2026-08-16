@@ -162,6 +162,8 @@ fun EditorScreen(
                     selection = state.selection,
                     onSeek = viewModel::seekToFraction,
                     onSelectionChange = viewModel::setSelection,
+                    label = "Waveform, keeping ${formatDurationPrecise(state.startMs)} to " +
+                        formatDurationPrecise(state.endMs),
                 )
 
                 Spacer(Modifier.height(14.dp))

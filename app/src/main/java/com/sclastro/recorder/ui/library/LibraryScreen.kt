@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -28,13 +29,18 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -63,14 +69,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.data.Recording
 import com.sclastro.recorder.ui.components.MiniWaveform
+import com.sclastro.recorder.ui.player.MiniPlayerState
 import com.sclastro.recorder.ui.theme.LocalAccents
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.sclastro.recorder.util.formatDuration
 import com.sclastro.recorder.util.formatSize
@@ -84,6 +94,8 @@ fun LibraryScreen(
     onShare: (Recording) -> Unit,
     onShareMany: (List<Recording>) -> Unit,
     onOpenTrash: () -> Unit,
+    onStartRecording: () -> Unit,
+    nowPlaying: MiniPlayerState,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
@@ -219,9 +231,39 @@ fun LibraryScreen(
         }
 
         if (state.recordings.isEmpty()) {
-            EmptyState(
-                text = if (state.query.isBlank()) "No recordings yet — tap the button on the Record tab" else "Nothing matches that search",
-            )
+            when {
+                state.query.isNotBlank() -> EmptyState(
+                    icon = Icons.Filled.SearchOff,
+                    title = "Nothing matches that search",
+                    body = "Searching looks at names, notes and folders.",
+                    actionLabel = "Clear search",
+                    onAction = { viewModel.setQuery("") },
+                )
+
+                state.favouritesOnly -> EmptyState(
+                    icon = Icons.Outlined.StarBorder,
+                    title = "No favourites yet",
+                    body = "Tap the star on a recording to keep it here.",
+                    actionLabel = "Show all",
+                    onAction = { viewModel.setFolderFilter(null) },
+                )
+
+                state.folderFilter != null -> EmptyState(
+                    icon = Icons.Filled.FolderOpen,
+                    title = "This folder is empty",
+                    body = "Move recordings in from the ⋮ menu, or record straight into it.",
+                    actionLabel = "Show all",
+                    onAction = { viewModel.setFolderFilter(null) },
+                )
+
+                else -> EmptyState(
+                    icon = Icons.Filled.Mic,
+                    title = "No recordings yet",
+                    body = "Everything you record lands here, sorted into folders.",
+                    actionLabel = "Start recording",
+                    onAction = onStartRecording,
+                )
+            }
         } else {
             PullToRefreshBox(
                 isRefreshing = refreshing,
@@ -238,11 +280,17 @@ fun LibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.recordings, key = { it.id }) { recording ->
+                    val isCurrent = nowPlaying.recordingId == recording.id
                     RecordingRow(
                         recording = recording,
                         peaksProvider = { viewModel.peaksFor(recording) },
                         selected = recording.id in selected,
                         selectionMode = selected.isNotEmpty(),
+                        // The row that is loaded in the session tracks live;
+                        // everything else shows where it was left off.
+                        progress = if (isCurrent) nowPlaying.progress else recording.listenedFraction,
+                        playing = isCurrent && nowPlaying.playing,
+                        loaded = isCurrent,
                         onSwipedAway = {
                             viewModel.moveToTrash(recording.id)
                             announceTrashed(listOf(recording.id))
@@ -312,6 +360,9 @@ private fun RecordingRow(
     peaksProvider: suspend () -> ByteArray?,
     selected: Boolean,
     selectionMode: Boolean,
+    progress: Float,
+    playing: Boolean,
+    loaded: Boolean,
     onSwipedAway: () -> Unit,
     onLongClick: () -> Unit,
     onClick: () -> Unit,
@@ -370,7 +421,11 @@ private fun RecordingRow(
             )
             .border(
                 1.dp,
-                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                when {
+                    selected -> MaterialTheme.colorScheme.primary
+                    loaded -> accents.playback
+                    else -> MaterialTheme.colorScheme.outlineVariant
+                },
                 RoundedCornerShape(16.dp),
             )
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
@@ -379,6 +434,16 @@ private fun RecordingRow(
     ) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (loaded) {
+                    Icon(
+                        imageVector = if (playing) Icons.Filled.VolumeUp else Icons.Filled.Pause,
+                        contentDescription = if (playing) "Playing" else "Paused",
+                        tint = accents.playback,
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .size(16.dp),
+                    )
+                }
                 Text(
                     text = recording.displayName,
                     style = MaterialTheme.typography.titleMedium,
@@ -401,6 +466,7 @@ private fun RecordingRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MiniWaveform(
                     peaks = peaks,
+                    progress = progress,
                     modifier = Modifier
                         .width(84.dp)
                         .height(22.dp),
@@ -417,6 +483,15 @@ private fun RecordingRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Only worth saying when it is genuinely part-way and not the
+                // row already being tracked live by the mini player.
+                if (!loaded && progress > 0f) {
+                    Text(
+                        text = " · ${(progress * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = accents.playback,
+                    )
+                }
             }
             Spacer(Modifier.height(4.dp))
             Text(
@@ -472,19 +547,57 @@ private fun RecordingRow(
     }
 }
 
+/**
+ * An empty list should say what would fill it and offer the one action that
+ * does, rather than leaving a single grey sentence in the middle of the screen.
+ */
 @Composable
-fun EmptyState(text: String) {
+fun EmptyState(
+    icon: ImageVector,
+    title: String,
+    body: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
     Box(
         Modifier
             .fillMaxSize()
             .padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Normal,
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            if (actionLabel != null && onAction != null) {
+                Spacer(Modifier.height(20.dp))
+                Button(onClick = onAction) { Text(actionLabel) }
+            }
+        }
     }
 }

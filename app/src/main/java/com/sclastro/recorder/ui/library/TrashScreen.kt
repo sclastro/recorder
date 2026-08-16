@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,15 +79,22 @@ fun TrashScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Text(
-                text = "Deleted recordings stay here for $retentionDays days, then clear automatically.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            )
+            // The empty state says the same thing, so only one of them shows.
+            if (items.isNotEmpty()) {
+                Text(
+                    text = "Deleted recordings stay here for $retentionDays days, then clear automatically.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
 
             if (items.isEmpty()) {
-                EmptyState("The recycle bin is empty")
+                EmptyState(
+                    icon = Icons.Filled.DeleteOutline,
+                    title = "The recycle bin is empty",
+                    body = "Deleted recordings wait here for $retentionDays days before they go for good.",
+                )
             } else {
                 LazyColumn(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(

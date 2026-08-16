@@ -37,6 +37,18 @@ data class Recording(
     val extension: String get() = file.extension
     val exists: Boolean get() = file.isFile
 
+    /**
+     * How far through this was left, for the list to draw. Zero unless it was
+     * genuinely stopped part-way — the first and last few seconds count as
+     * "not started" and "finished", which is the same rule playback resumes by.
+     */
+    val listenedFraction: Float
+        get() {
+            if (durationMs <= 0 || lastPositionMs <= RESUME_EDGE_MS) return 0f
+            if (lastPositionMs >= durationMs - RESUME_EDGE_MS) return 0f
+            return (lastPositionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+        }
+
     fun qualityLine(): String = buildString {
         append(format)
         append(" · ")
@@ -49,6 +61,10 @@ data class Recording(
         }
         append(" · ")
         append(if (channels >= 2) "Stereo" else "Mono")
+    }
+
+    private companion object {
+        const val RESUME_EDGE_MS = 3_000L
     }
 }
 
