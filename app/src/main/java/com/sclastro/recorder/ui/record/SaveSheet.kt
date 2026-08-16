@@ -79,7 +79,7 @@ fun SaveSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
             Text("Folder", style = MaterialTheme.typography.labelLarge)
             Row(
                 Modifier
@@ -102,7 +102,7 @@ fun SaveSheet(
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Keep as is") }
                 Button(onClick = { onConfirm(name, folder) }, modifier = Modifier.weight(1f)) { Text("Save") }

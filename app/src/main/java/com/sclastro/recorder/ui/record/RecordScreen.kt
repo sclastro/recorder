@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Tune
@@ -62,6 +65,7 @@ import com.sclastro.recorder.audio.RecorderEngine
 import com.sclastro.recorder.ui.components.LevelMeter
 import com.sclastro.recorder.ui.components.LiveWaveform
 import com.sclastro.recorder.ui.components.RecordButton
+import com.sclastro.recorder.ui.library.FolderPickerDialog
 import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.ui.theme.TimerLarge
 import com.sclastro.recorder.util.formatDuration
@@ -82,6 +86,7 @@ fun RecordScreen(
     val targetFolder by viewModel.targetFolder.collectAsStateWithLifecycle()
 
     var showQuality by remember { mutableStateOf(false) }
+    var showFolderPicker by remember { mutableStateOf(false) }
     var pendingStart by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
 
@@ -177,13 +182,13 @@ fun RecordScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             LiveWaveform(levels = levels, active = active && !paused)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             LevelMeter(peakDb = state.peakDb, rmsDb = state.rmsDb, clipping = state.clipping)
 
             if (active) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = "${formatSize(state.bytesWritten)} written",
                     style = MaterialTheme.typography.bodySmall,
@@ -192,32 +197,34 @@ fun RecordScreen(
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // Destination folder.
+        // Where it lands. This used to be a row of folder chips, but the save
+        // sheet asks the same question again after recording, and nine times
+        // out of ten the answer is last time's answer — so it is one quiet
+        // line that opens a picker rather than a permanent row of choices.
         Row(
             Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(enabled = !active) { showFolderPicker = true }
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Icon(
+                Icons.Filled.FolderOpen,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
             Text(
-                "Save to",
-                style = MaterialTheme.typography.labelMedium,
+                text = "Saving to " + (folders.firstOrNull { it.name == currentFolder }?.label ?: "Unsorted"),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            folders.forEach { folder ->
-                FilterChip(
-                    selected = currentFolder == folder.name,
-                    onClick = { viewModel.setTargetFolder(folder.name) },
-                    enabled = !active,
-                    label = { Text(folder.label) },
-                )
-            }
         }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
         }
 
         // Fixed transport.
@@ -314,6 +321,19 @@ fun RecordScreen(
                 }) { Text("Discard") }
             },
             dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep recording") } },
+        )
+    }
+
+    if (showFolderPicker) {
+        FolderPickerDialog(
+            title = "Save recordings to",
+            folders = folders.map { it.name to it.label },
+            current = currentFolder,
+            onPick = {
+                viewModel.setTargetFolder(it)
+                showFolderPicker = false
+            },
+            onDismiss = { showFolderPicker = false },
         )
     }
 

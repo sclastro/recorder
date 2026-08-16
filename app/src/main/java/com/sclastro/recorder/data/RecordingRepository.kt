@@ -195,6 +195,46 @@ class RecordingRepository(
         true
     }
 
+    /**
+     * Swaps a freshly written file over an existing recording, keeping its id,
+     * name, folder, note and favourite. This is what "replace original" in the
+     * editor calls, so it is destructive by design — the caller confirms first.
+     *
+     * The original is moved aside rather than overwritten, and put back if the
+     * swap fails, so a half-written file can never end up as the recording.
+     */
+    suspend fun replaceFile(
+        id: Long,
+        newFile: File,
+        durationMs: Long,
+        bookmarks: List<Long>,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val row = recordingDao.byId(id) ?: return@withContext false
+        if (!newFile.isFile) return@withContext false
+        val target = storage.file(row.relPath)
+
+        val backup = File(target.parentFile, "${target.name}.replacing")
+        backup.delete()
+        if (target.isFile && !target.renameTo(backup)) return@withContext false
+        if (!moveFile(newFile, target)) {
+            backup.renameTo(target)
+            return@withContext false
+        }
+        backup.delete()
+
+        Peaks.delete(target)
+        PeakGenerator.generate(target)?.let { Peaks.save(target, it) }
+        recordingDao.update(
+            row.copy(
+                durationMs = durationMs,
+                sizeBytes = target.length(),
+                bookmarks = bookmarks.sorted().joinToString(","),
+                lastPositionMs = 0,
+            ),
+        )
+        true
+    }
+
     suspend fun setFavorite(id: Long, favorite: Boolean) = withContext(Dispatchers.IO) {
         recordingDao.byId(id)?.let { recordingDao.update(it.copy(favorite = favorite)) }
     }

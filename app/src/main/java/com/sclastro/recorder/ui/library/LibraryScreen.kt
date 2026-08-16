@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.FolderOpen
@@ -35,7 +36,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.StarBorder
@@ -118,7 +118,7 @@ fun LibraryScreen(
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
     var moveTarget by remember { mutableStateOf<Recording?>(null) }
     var showFolders by remember { mutableStateOf(false) }
-    var showSort by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -199,29 +199,64 @@ fun LibraryScreen(
                 }
             }
 
-            IconButton(onClick = { showFolders = true }) {
-                Icon(Icons.Filled.FolderOpen, contentDescription = "Manage folders")
-            }
-            IconButton(onClick = onOpenTrash) {
-                BadgedBox(
-                    badge = {
-                        if (state.trashCount > 0) Badge { Text(state.trashCount.toString()) }
-                    },
-                ) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Recycle bin")
-                }
-            }
+            // Folders, bin and sort were three icons wedged against the filter
+            // chips, all fighting for the same few dp. One overflow instead,
+            // with the bin's count promoted onto it so nothing is hidden.
             Box {
-                IconButton(onClick = { showSort = true }) {
-                    Icon(Icons.Filled.Sort, contentDescription = "Sort")
+                IconButton(onClick = { showMenu = true }) {
+                    BadgedBox(
+                        badge = {
+                            if (state.trashCount > 0) Badge { Text(state.trashCount.toString()) }
+                        },
+                    ) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Library options")
+                    }
                 }
-                DropdownMenu(expanded = showSort, onDismissRequest = { showSort = false }) {
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Manage folders") },
+                        leadingIcon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            showFolders = true
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (state.trashCount > 0) {
+                                    "Recycle bin (${state.trashCount})"
+                                } else {
+                                    "Recycle bin"
+                                },
+                            )
+                        },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            onOpenTrash()
+                        },
+                    )
+                    HorizontalDivider()
+                    Text(
+                        text = "Sort by",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 4.dp),
+                    )
                     SortOrder.entries.forEach { order ->
                         DropdownMenuItem(
                             text = { Text(order.label) },
+                            leadingIcon = {
+                                if (state.sort == order) {
+                                    Icon(Icons.Filled.Check, contentDescription = "Selected")
+                                } else {
+                                    Spacer(Modifier.width(24.dp))
+                                }
+                            },
                             onClick = {
                                 viewModel.setSort(order)
-                                showSort = false
+                                showMenu = false
                             },
                         )
                     }
@@ -462,7 +497,7 @@ private fun RecordingRow(
                     )
                 }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MiniWaveform(
                     peaks = peaks,
@@ -587,7 +622,7 @@ fun EmptyState(
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = body,
                 style = MaterialTheme.typography.bodyMedium,
@@ -595,7 +630,7 @@ fun EmptyState(
                 textAlign = TextAlign.Center,
             )
             if (actionLabel != null && onAction != null) {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
                 Button(onClick = onAction) { Text(actionLabel) }
             }
         }

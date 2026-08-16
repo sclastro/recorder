@@ -3,6 +3,8 @@ package com.sclastro.recorder.ui.settings
 import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +16,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -32,7 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -70,14 +77,32 @@ class SettingsViewModel(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    var template by remember(settings.filenameTemplate) { mutableStateOf(settings.filenameTemplate) }
+    // A TextFieldValue rather than a String so a token chip can be inserted
+    // where the cursor is instead of only at the end.
+    var template by remember(settings.filenameTemplate) {
+        mutableStateOf(
+            TextFieldValue(
+                text = settings.filenameTemplate,
+                selection = TextRange(settings.filenameTemplate.length),
+            ),
+        )
+    }
+
+    fun insertToken(token: String) {
+        val current = template
+        val start = current.selection.min
+        val end = current.selection.max
+        val next = current.text.replaceRange(start, end, token)
+        template = TextFieldValue(next, TextRange(start + token.length))
+        viewModel.setTemplate(next)
+    }
 
     Scaffold(
         topBar = {
@@ -103,28 +128,42 @@ fun SettingsScreen(
                 value = template,
                 onValueChange = {
                     template = it
-                    viewModel.setTemplate(it)
+                    viewModel.setTemplate(it.text)
                 },
                 label = { Text("Name template") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "Preview: " + FileNaming.expand(template, preset = settings.presetName) + ".${settings.config.container.ext}",
+                text = "Preview: " + FileNaming.expand(template.text, preset = settings.presetName) +
+                    ".${settings.config.container.ext}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(8.dp))
-            FileNaming.TOKENS.forEach { (token, description) ->
-                Text(
-                    text = "$token — $description",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
             Spacer(Modifier.height(8.dp))
+            // Six lines of grey "{token} — meaning" was documentation you had to
+            // retype by hand. Tapping one inserts it at the cursor instead.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FileNaming.TOKENS.forEach { (token, description) ->
+                    AssistChip(
+                        onClick = { insertToken(token) },
+                        label = { Text(token) },
+                        modifier = Modifier.semantics { contentDescription = "Insert $token — $description" },
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                // What each one means is easier to see than to read: tapping a
+                // chip changes the preview line above straight away.
+                text = "Tap to insert at the cursor.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(16.dp))
             ToggleRow(
                 title = "Ask me to name it after recording",
                 subtitle = "Off: the template name is used and nothing pops up",
@@ -175,7 +214,7 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = "Folders are real directories. Android hides this location from other apps on the phone, but connecting to a computer over USB shows the same structure.",
                 style = MaterialTheme.typography.bodySmall,
@@ -191,7 +230,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(32.dp))
         }
     }
 }

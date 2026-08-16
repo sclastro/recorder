@@ -139,7 +139,7 @@ fun PlayerScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
                 if (state.loadingPeaks) {
                     Box(
                         Modifier
@@ -166,7 +166,7 @@ fun PlayerScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
 
             Row(
                 Modifier.fillMaxWidth(),
@@ -198,7 +198,7 @@ fun PlayerScreen(
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
 
             // One row of three, each opening the options sheet. Three separate
             // horizontally scrolling chip rows fought with the page's own
@@ -222,7 +222,7 @@ fun PlayerScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
 
             recording?.let {
                 var note by remember(it.id) { mutableStateOf(it.note) }

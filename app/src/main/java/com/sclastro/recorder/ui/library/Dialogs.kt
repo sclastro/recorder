@@ -63,10 +63,11 @@ fun FolderPickerDialog(
     current: String,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
+    title: String = "Move to folder",
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Move to folder") },
+        title = { Text(title) },
         text = {
             Column(
                 Modifier

@@ -20,7 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -34,6 +36,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,12 +54,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.ui.components.WaveformScrubber
 import com.sclastro.recorder.ui.library.TextInputDialog
+import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.ui.theme.MonoSmall
 import com.sclastro.recorder.util.formatDurationPrecise
 
 /**
- * Trim view: drag the two handles, preview, then write the selection out as a
- * new file. The original is never modified.
+ * Trim view: drag the two handles, preview, then write the selection out —
+ * either as a new file or over the original, which is confirmed first.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,8 +71,10 @@ fun EditorScreen(
     viewModel: EditorViewModel = viewModel(factory = EditorViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val accents = LocalAccents.current
     val snackbars = remember { SnackbarHostState() }
     var showNameDialog by remember { mutableStateOf(false) }
+    var confirmReplace by remember { mutableStateOf(false) }
 
     LaunchedEffect(recordingId) { viewModel.load(recordingId) }
 
@@ -106,12 +112,13 @@ fun EditorScreen(
             Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest) {
                 Column(Modifier.navigationBarsPadding()) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    val ready = !state.busy && state.endMs > state.startMs
                     Button(
                         onClick = { showNameDialog = true },
-                        enabled = !state.busy && state.endMs > state.startMs,
+                        enabled = ready,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .padding(start = 20.dp, end = 20.dp, top = 12.dp)
                             .height(52.dp),
                     ) {
                         if (state.busy) {
@@ -124,6 +131,20 @@ fun EditorScreen(
                             Text("Save as new file")
                         }
                     }
+                    // Trimming top and tail is usually a fix to the file rather
+                    // than a derivative of it, so replacing has to be reachable —
+                    // but it is destructive, so it is the quieter of the two.
+                    TextButton(
+                        onClick = { confirmReplace = true },
+                        enabled = ready,
+                        colors = ButtonDefaults.textButtonColors(contentColor = accents.danger),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
+                    ) {
+                        Text("Replace the original")
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         },
@@ -136,12 +157,13 @@ fun EditorScreen(
                 .padding(horizontal = 20.dp),
         ) {
             Text(
-                text = "Drag the handles to choose the part to keep. The original file is never changed.",
+                text = "Drag the handles to choose the part to keep, then save it as a new file " +
+                    "or write it over the original.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
             Column(
                 Modifier
@@ -166,7 +188,7 @@ fun EditorScreen(
                         formatDurationPrecise(state.endMs),
                 )
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth()) {
                     Readout("Start", formatDurationPrecise(state.startMs), TextAlign.Start, Modifier.weight(1f))
                     Readout(
@@ -220,6 +242,33 @@ fun EditorScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    if (confirmReplace) {
+        val discarded = state.durationMs - (state.endMs - state.startMs)
+        AlertDialog(
+            onDismissRequest = { confirmReplace = false },
+            title = { Text("Replace the original?") },
+            text = {
+                Text(
+                    "${formatDurationPrecise(discarded)} will be cut from " +
+                        "${state.recording?.displayName ?: "this recording"} and cannot be recovered. " +
+                        "Bookmarks outside the kept part are removed.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmReplace = false
+                        viewModel.replaceOriginal()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = accents.danger),
+                ) { Text("Replace") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReplace = false }) { Text("Cancel") }
+            },
+        )
     }
 
     if (showNameDialog) {

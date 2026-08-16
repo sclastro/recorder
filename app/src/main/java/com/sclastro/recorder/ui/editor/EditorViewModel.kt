@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 data class EditorUiState(
     val recording: Recording? = null,
@@ -159,16 +160,14 @@ class EditorViewModel(
         _state.value = current.copy(busy = true, message = null)
 
         viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                val safe = RecordingStorage.sanitiseName(name)
-                val destination = container.storage.uniqueFile(
+            val destination = withContext(Dispatchers.IO) {
+                container.storage.uniqueFile(
                     container.storage.folderDir(recording.folder),
-                    safe,
+                    RecordingStorage.sanitiseName(name),
                     recording.file.extension,
                 )
-                TrimEngine.trim(recording.file, destination, current.startMs, current.endMs)
             }
-            when (outcome) {
+            when (val outcome = trimTo(destination, current)) {
                 is TrimEngine.Outcome.Success -> {
                     val probe = withContext(Dispatchers.IO) { MediaProbe.probe(outcome.file) }
                     val saved = container.repository.registerFile(
@@ -190,6 +189,72 @@ class EditorViewModel(
                     _state.value = _state.value.copy(busy = false, message = outcome.message)
                 }
             }
+        }
+    }
+
+    /**
+     * Overwrites the recording with the selection, keeping its name, folder,
+     * note and favourite. Trimming top and tail is usually meant as a fix to
+     * the file rather than a derivative of it, and the alternative was a second
+     * copy every time. Destructive, so the screen confirms before calling.
+     */
+    fun replaceOriginal() {
+        val current = _state.value
+        val recording = current.recording ?: return
+        if (current.busy) return
+        _state.value = current.copy(busy = true, message = null)
+
+        viewModelScope.launch {
+            // Written somewhere else first: the trim reads the file it is about
+            // to become, so the swap can only happen once the write is done.
+            val staging = withContext(Dispatchers.IO) {
+                container.storage.pendingDir.mkdirs()
+                container.storage.uniqueFile(
+                    container.storage.pendingDir,
+                    "replace_${recording.id}",
+                    recording.file.extension,
+                )
+            }
+            when (val outcome = trimTo(staging, current)) {
+                is TrimEngine.Outcome.Success -> {
+                    val probe = withContext(Dispatchers.IO) { MediaProbe.probe(outcome.file) }
+                    val duration = outcome.durationMs.takeIf { it > 0 } ?: probe.durationMs
+                    // Bookmarks are absolute positions in the old file; the ones
+                    // inside the kept range shift back, the rest are gone.
+                    val bookmarks = recording.bookmarks
+                        .filter { it in current.startMs..current.endMs }
+                        .map { it - current.startMs }
+                    val replaced = container.repository.replaceFile(
+                        id = recording.id,
+                        newFile = outcome.file,
+                        durationMs = duration,
+                        bookmarks = bookmarks,
+                    )
+                    if (replaced) {
+                        // Reload so the waveform and handles describe the file
+                        // that now exists rather than the one that used to.
+                        load(recording.id)
+                        _state.value = _state.value.copy(busy = false, message = "Original replaced")
+                    } else {
+                        withContext(Dispatchers.IO) { outcome.file.delete() }
+                        _state.value = _state.value.copy(
+                            busy = false,
+                            message = "Could not replace the original — it is unchanged",
+                        )
+                    }
+                }
+                is TrimEngine.Outcome.Failure -> {
+                    withContext(Dispatchers.IO) { staging.delete() }
+                    _state.value = _state.value.copy(busy = false, message = outcome.message)
+                }
+            }
+        }
+    }
+
+    private suspend fun trimTo(destination: File, from: EditorUiState): TrimEngine.Outcome {
+        val recording = from.recording ?: return TrimEngine.Outcome.Failure("Nothing loaded")
+        return withContext(Dispatchers.IO) {
+            TrimEngine.trim(recording.file, destination, from.startMs, from.endMs)
         }
     }
 
