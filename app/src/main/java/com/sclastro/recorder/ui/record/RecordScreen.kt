@@ -1,6 +1,7 @@
 package com.sclastro.recorder.ui.record
 
 import android.Manifest
+import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,8 +14,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -125,16 +129,12 @@ fun RecordScreen(
     val paused = state.status == RecorderEngine.Status.PAUSED
     val levelFraction = PcmMath.dbToFraction(state.peakDb)
 
-    Column(modifier.fillMaxSize()) {
-        // Everything above the transport scrolls, so a large system font or a
-        // short screen can never push the record button out of reach.
-        Column(
-            Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    // Landscape is short and wide: stacked, the capture panel eats the height
+    // and pushes the record button off the bottom. Side by side, each half
+    // gets a full column and the button stays put.
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val capture: @Composable ColumnScope.() -> Unit = {
         // Presets — one tap to a whole capture configuration.
         Row(
             Modifier
@@ -236,16 +236,10 @@ fun RecordScreen(
             )
         }
 
-            Spacer(Modifier.height(24.dp))
-        }
+        Spacer(Modifier.height(24.dp))
+    }
 
-        // Fixed transport.
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    val transport: @Composable ColumnScope.() -> Unit = {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -317,6 +311,49 @@ fun RecordScreen(
         }
 
         Spacer(Modifier.height(8.dp))
+    }
+
+    if (landscape) {
+        Row(modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = capture,
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                content = transport,
+            )
+        }
+    } else {
+        Column(modifier.fillMaxSize()) {
+            // Everything above the transport scrolls, so a large system font
+            // or a short screen can never push the record button out of reach.
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = capture,
+            )
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = transport,
+            )
         }
     }
 

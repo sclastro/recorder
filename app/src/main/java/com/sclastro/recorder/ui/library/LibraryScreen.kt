@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.DriveFolderUpload
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -139,6 +140,7 @@ fun LibraryScreen(
     }
 
     val working by viewModel.working.collectAsStateWithLifecycle()
+    val mirrorReady by viewModel.mirrorReady.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     LaunchedEffect(message) {
         message?.let {
@@ -252,6 +254,16 @@ fun LibraryScreen(
                             showFolders = true
                         },
                     )
+                    if (mirrorReady) {
+                        DropdownMenuItem(
+                            text = { Text("Copy all to the chosen folder") },
+                            leadingIcon = { Icon(Icons.Filled.DriveFolderUpload, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                viewModel.copyAllToMirror()
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Import audio") },
                         leadingIcon = { Icon(Icons.Filled.FileOpen, contentDescription = null) },

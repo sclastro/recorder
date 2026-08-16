@@ -18,7 +18,9 @@ standing decision by the owner, not a default to revisit. It covers:
 
 Strings currently live inline in Kotlin rather than `strings.xml`. If the app
 ever gains a second language, move them to `strings.xml` first; until then keep
-new strings inline and in English for consistency.
+new strings inline and in English for consistency. (This was reconsidered and
+kept: extracting several hundred strings is a large, regression-prone refactor
+that buys nothing while the app is English-only.)
 
 Conversation with the owner is in Cantonese; that has no bearing on the UI.
 
@@ -49,6 +51,24 @@ Hilt). Capture is `AudioRecord` → `AudioSink` on a dedicated audio-priority
 thread inside a microphone foreground service — never `MediaRecorder`, which
 cannot select bit depth. Room indexes a real directory tree and is reconciled
 against disk on launch.
+
+### Standing decisions about audio
+
+- **Lossless by default.** Trimming and splitting copy bytes (WAV) or packets
+  (compressed). The only operation that re-encodes is "export smaller", and it
+  always writes a separate file.
+- **Fades and normalising are WAV-only** (`EditEngine`). On a compressed file
+  they would mean decode → process → re-encode, losing quality every time. The
+  editor says so rather than degrading an M4A quietly. `GainPass` works at the
+  file's own bit depth so a 24-bit recording is never narrowed just to be faded.
+- **Recordings live in app storage and stay there.** Capture needs a real file
+  descriptor on the audio thread, trimming seeks inside the file, and peaks are
+  sidecars beside it. `FolderMirror` copies finished recordings into a
+  user-chosen SAF tree instead — a mirror, not a move, and off by default
+  because it doubles disk use.
+- **Playback settings ExoPlayer owns but `Player` does not expose**
+  (skip-silence, gain above unity) travel to `PlaybackService` as custom
+  session commands; see `PlaybackCommands`.
 
 ## Checks before pushing
 

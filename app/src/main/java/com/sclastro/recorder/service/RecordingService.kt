@@ -24,6 +24,7 @@ import com.sclastro.recorder.container
 import com.sclastro.recorder.util.formatDuration
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
@@ -161,7 +162,8 @@ class RecordingService : LifecycleService() {
                 // appScope, not this one: the service can go away between the
                 // last split and the commit finishing.
                 container.appScope.launch {
-                    container.repository.commitRecording(segment, request.folder, name)
+                    val saved = container.repository.commitRecording(segment, request.folder, name)
+                    saved?.let { mirror(it.file) }
                 }
             }
         }
@@ -228,10 +230,22 @@ class RecordingService : LifecycleService() {
             if (result != null) {
                 val saved = container.repository.commitRecording(result, folder, name)
                 container.justSaved.value = saved
+                saved?.let { mirror(it.file) }
             }
             container.activeRequest = null
             stopSelf()
         }
+    }
+
+    /**
+     * Copies the finished file into the folder the user picked, if they picked
+     * one. Best-effort by design — a mirror that cannot be written must not
+     * take the recording down with it.
+     */
+    private suspend fun mirror(file: File) {
+        val tree = container.settings.settings.first().mirrorTreeUri
+        if (tree.isBlank()) return
+        container.mirror.copy(file, tree)
     }
 
     /** Throws the capture away: the pending file is deleted, nothing is filed. */

@@ -36,6 +36,8 @@ data class AppSettings(
     /** Skip writing while the input stays below [voxThresholdDb]. */
     val voxEnabled: Boolean = false,
     val voxThresholdDb: Int = -40,
+    /** A SAF tree each finished recording is also copied into; blank is off. */
+    val mirrorTreeUri: String = "",
 ) {
     val capturePolicy: RecorderEngine.Policy
         get() = RecorderEngine.Policy(
@@ -70,6 +72,7 @@ class SettingsStore(private val context: Context) {
             splitMinutes = p[SPLIT_MINUTES] ?: 0,
             voxEnabled = p[VOX] == true,
             voxThresholdDb = p[VOX_DB] ?: -40,
+            mirrorTreeUri = p[MIRROR_TREE] ?: "",
         )
     }
 
@@ -125,6 +128,10 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[VOX_DB] = value }
     }
 
+    suspend fun setMirrorTreeUri(value: String) {
+        context.dataStore.edit { it[MIRROR_TREE] = value }
+    }
+
     /** Monotonic counter behind the {seq} filename token. */
     suspend fun nextSequence(): Int {
         var next = 1
@@ -159,5 +166,6 @@ class SettingsStore(private val context: Context) {
         val SPLIT_MINUTES = intPreferencesKey("split_minutes")
         val VOX = booleanPreferencesKey("vox")
         val VOX_DB = intPreferencesKey("vox_db")
+        val MIRROR_TREE = stringPreferencesKey("mirror_tree")
     }
 }

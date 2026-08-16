@@ -1,6 +1,9 @@
 package com.sclastro.recorder.ui.settings
 
 import android.app.Application
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -25,7 +28,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -66,6 +71,15 @@ class SettingsViewModel(
 
     val storageRoot: String = container.storage.root.absolutePath
 
+    fun mirrorLabel(uri: String) = container.mirror.label(uri)
+    fun mirrorUsable(uri: String) = container.mirror.isUsable(uri)
+
+    /** Persists the SAF grant before storing it, or the copy fails after a reboot. */
+    fun setMirrorTree(uri: String) = viewModelScope.launch {
+        if (uri.isNotBlank()) container.mirror.persist(Uri.parse(uri))
+        container.settings.setMirrorTreeUri(uri)
+    }
+
     fun setTemplate(value: String) = viewModelScope.launch { container.settings.setTemplate(value) }
     fun setAskName(value: Boolean) = viewModelScope.launch { container.settings.setAskName(value) }
     fun setKeepScreenOn(value: Boolean) = viewModelScope.launch { container.settings.setKeepScreenOn(value) }
@@ -97,6 +111,16 @@ fun SettingsScreen(
             ),
         )
     }
+
+    val treeLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) viewModel.setMirrorTree(uri.toString())
+    }
+    val mirrorLabel = settings.mirrorTreeUri
+        .takeIf { it.isNotBlank() }
+        ?.let { viewModel.mirrorLabel(it) }
+    val mirrorUsable = settings.mirrorTreeUri.isNotBlank() && viewModel.mirrorUsable(settings.mirrorTreeUri)
 
     fun insertToken(token: String) {
         val current = template
@@ -279,6 +303,45 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Spacer(Modifier.height(16.dp))
+            Text("Also copy to a folder", style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Recordings stay where they are — capture, trimming and waveforms all " +
+                    "need a real path. This puts a copy somewhere your file manager can see, " +
+                    "at the cost of using the space twice.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(onClick = { treeLauncher.launch(null) }) {
+                    Text(if (mirrorLabel == null) "Choose a folder" else "Change")
+                }
+                if (mirrorLabel != null) {
+                    TextButton(onClick = { viewModel.setMirrorTree("") }) { Text("Turn off") }
+                }
+            }
+            mirrorLabel?.let { label ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (mirrorUsable) {
+                        "Copying to $label"
+                    } else {
+                        "$label is no longer reachable — choose it again"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (mirrorUsable) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 

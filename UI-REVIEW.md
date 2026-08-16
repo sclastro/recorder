@@ -176,7 +176,36 @@ FilledIconButton 應該用 sage。
   search」）、我的最愛係空（「Show all」）、資料夾係空（「Show all」）。回收桶空
   嘅時候同樣，順帶收起上面嗰句重複嘅保留期說明。
 
+第三批（B1 / B3 / B4 / C3 / C8）：
+
+- ✅ **B3** 錄音頁嘅資料夾 chip 行變成一行「Saving to …」，撳到彈 picker
+- ✅ **B4** 剪輯加咗「Replace the original」，有確認同埋話你知會切走幾多；
+  `replaceFile()` 會先將原檔搬開，換唔成就搬返，範圍外嘅書籤會清走、範圍內嘅平移
+- ✅ **B1** 資料夾／回收桶／排序三個圖示收埋成一個 overflow，回收桶個數字提上去
+- ✅ **C8** 檔名 token 變成 chip，撳一下插入去游標位置
+- ✅ **C3** `Spacer` 高度收斂到 4 / 8 / 16 / 24
+
+第四批（功能）：
+
+- ✅ 錄音：自動分段（時間或大小）、VOX 聲控、書籤 strip
+- ✅ 播放：A-B 循環、音量增益（`LoudnessEnhancer`）、跳過靜音（custom session command）
+- ✅ 剪輯：喺播放頭切開、淡入淡出、正規化（後兩樣淨係 WAV，見 CLAUDE.md）
+- ✅ 匯入外部音檔、匯出細碼率
+- ✅ **C7** 錄音頁橫向變左右兩欄
+- ✅ **C6** 深色主題 —— 冇實機，所以改為用單元測試量對比度：
+  正文對背景全部過 WCAG AA 4.5:1，accent 當圖形計過 3:1，七個測試一次過
+- ✅ SAF 自訂位置 —— 做成「另存一份」而唔係搬走，理由喺 CLAUDE.md
+- ✅ Baseline Profile（手寫，冇 device 量唔到真數據）
+
+**冇做，而且係刻意冇做**：字串搬去 `strings.xml`。CLAUDE.md 本身寫住「英文獨大
+就唔使搬」，而家幾百句 inline 字串搬一次係大規模改動、容易改壞嘢，而且喺得一種
+語言嘅情況下一分好處都冇。要加第二種語言嗰日先做。
+
 順帶執咗一個真 bug：`RecorderApp.uriFor()` 個 FileProvider authority 寫成
 `"${'$'}{context.packageName}.fileprovider"`，即係字面上嘅 `${context.packageName}
 .fileprovider`。多選分享兩個以上檔案會直接 crash。單選嗰條路徑係另一段正常嘅碼，
 所以之前試唔出。而家兩條路徑共用同一個 helper。
+
+第二個真 bug：`LibraryScreen` 由頭到尾冇 render 過 `SnackbarHost`，所以第三批
+講咗「滑動刪除 + Undo snackbar」嗰個 Undo **從來冇出現過** —— `showSnackbar`
+冇 host 就一直 suspend，畫都冇畫出嚟。而家補返。

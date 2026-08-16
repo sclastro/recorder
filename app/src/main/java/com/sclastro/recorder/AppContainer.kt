@@ -4,6 +4,7 @@ import android.content.Context
 import com.sclastro.recorder.audio.RecorderEngine
 import com.sclastro.recorder.audio.RecordingConfig
 import com.sclastro.recorder.data.Recording
+import com.sclastro.recorder.data.FolderMirror
 import com.sclastro.recorder.data.RecordingRepository
 import com.sclastro.recorder.data.RecordingStorage
 import com.sclastro.recorder.data.db.RecorderDatabase
@@ -27,6 +28,7 @@ class AppContainer(context: Context) {
     val repository = RecordingRepository(database.recordingDao(), database.folderDao(), storage)
     val settings = SettingsStore(appContext)
     val engine = RecorderEngine()
+    val mirror = FolderMirror(appContext)
 
     /** Handed from the UI to the foreground service when a capture starts. */
     data class StartRequest(

@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -263,6 +265,39 @@ class LibraryViewModel(
                     _working.value = null
                     _message.value = outcome.message
                 }
+            }
+        }
+    }
+
+    /** True when a mirror folder is set up and reachable. */
+    val mirrorReady: StateFlow<Boolean> = container.settings.settings
+        .map { container.mirror.isUsable(it.mirrorTreeUri) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * Copies everything already in the library into the mirror folder. The
+     * per-recording copy only fires on new recordings, so an existing library
+     * needs this once after the folder is chosen.
+     */
+    fun copyAllToMirror() {
+        if (_working.value != null) return
+        viewModelScope.launch {
+            val tree = container.settings.settings.first().mirrorTreeUri
+            if (tree.isBlank()) {
+                _message.value = "Choose a folder in Settings first"
+                return@launch
+            }
+            val all = uiState.value.recordings
+            var copied = 0
+            all.forEachIndexed { index, recording ->
+                _working.value = "Copying ${index + 1} of ${all.size}…"
+                if (container.mirror.copy(recording.file, tree)) copied++
+            }
+            _working.value = null
+            _message.value = if (copied == all.size) {
+                "Copied $copied recordings"
+            } else {
+                "Copied $copied of ${all.size} — the rest could not be written"
             }
         }
     }
