@@ -139,3 +139,22 @@ FilledIconButton 應該用 sage。
 5. **B2**（播放頁控制收埋入 sheet）—— 順手解決 A1 嘅根源
 6. **C2**（無障礙）、**C5**（空狀態）
 7. **B3 / B4 / C7 / C8** 睇需要
+
+---
+
+## 已完成
+
+第一批（A1 / A2 / B2 / C1 / C4）：
+
+- ✅ **A1 + B2** 播放頁溢出 —— 上半部加咗 `verticalScroll`；速度、睡眠計時器、
+  書籤三行橫向 scroll 收埋成一行「1.0× ｜ Sleep ｜ Marks」三個掣，撳落去彈
+  `PlayerOptionsSheet`（bottom sheet）。書籤列表搬入 sheet，可以喺度加、跳、刪。
+  兩個問題一次過解決：頁面唔再溢出，橫向同垂直 scroll 亦唔再打交。
+- ✅ **A2 mini player** —— `MiniPlayerBar` 喺 Record / Files 兩個 tab 嘅
+  navigation bar 上面，顯示檔名、進度線、位置／總長、播放暫停同關閉掣，撳一下
+  開返全螢幕播放頁。用 Media3「一個 session 可以有多過一個 controller」嘅特性，
+  開多個 `MediaController` 去睇同一個 session，唔會同播放頁爭。
+- ✅ **C1 計時器精度** —— 錄音頁改用 `mm:ss`，唔再每 40ms 跳一次百分之一秒。
+  百分之一秒淨係喺剪輯頁同播放頁嘅位置讀數度出現，嗰度先有意義。
+- ✅ **C4 播放色** —— 播放頁個大播放掣由紅轉 sage（`accents.playback`），mini
+  player 嘅進度線同播放掣一樣。紅色而家淨係代表錄音。

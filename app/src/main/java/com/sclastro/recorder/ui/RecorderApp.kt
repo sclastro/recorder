@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import com.sclastro.recorder.data.prefs.ThemeMode
 import com.sclastro.recorder.ui.editor.EditorScreen
 import com.sclastro.recorder.ui.library.LibraryScreen
 import com.sclastro.recorder.ui.library.TrashScreen
+import com.sclastro.recorder.ui.player.MiniPlayerBar
 import com.sclastro.recorder.ui.player.PlayerScreen
 import com.sclastro.recorder.ui.record.RecordScreen
 import com.sclastro.recorder.ui.settings.SettingsScreen
@@ -89,19 +91,23 @@ fun RecorderAppRoot(settingsViewModel: SettingsViewModel = viewModel(factory = S
             },
             bottomBar = {
                 if (showChrome) {
-                    NavigationBar {
-                        NavigationBarItem(
-                            selected = route == Routes.RECORD,
-                            onClick = { navController.navigateTab(Routes.RECORD) },
-                            icon = { Icon(Icons.Filled.Mic, contentDescription = null) },
-                            label = { Text("Record") },
-                        )
-                        NavigationBarItem(
-                            selected = route == Routes.LIBRARY,
-                            onClick = { navController.navigateTab(Routes.LIBRARY) },
-                            icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
-                            label = { Text("Files") },
-                        )
+                    Column {
+                        // Background playback needs somewhere in-app to see and stop it.
+                        MiniPlayerBar(onOpen = { navController.navigate(Routes.player(it)) })
+                        NavigationBar {
+                            NavigationBarItem(
+                                selected = route == Routes.RECORD,
+                                onClick = { navController.navigateTab(Routes.RECORD) },
+                                icon = { Icon(Icons.Filled.Mic, contentDescription = null) },
+                                label = { Text("Record") },
+                            )
+                            NavigationBarItem(
+                                selected = route == Routes.LIBRARY,
+                                onClick = { navController.navigateTab(Routes.LIBRARY) },
+                                icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                                label = { Text("Files") },
+                            )
+                        }
                     }
                 }
             },

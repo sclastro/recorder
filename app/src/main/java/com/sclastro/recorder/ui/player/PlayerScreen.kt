@@ -1,10 +1,7 @@
 package com.sclastro.recorder.ui.player
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,12 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
@@ -29,16 +25,15 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -49,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,16 +52,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.data.Recording
 import com.sclastro.recorder.ui.components.WaveformScrubber
+import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.ui.theme.TimerLarge
 import com.sclastro.recorder.util.formatDuration
 import com.sclastro.recorder.util.formatDurationPrecise
 import com.sclastro.recorder.util.formatSize
 import com.sclastro.recorder.util.formatTimestamp
 
-private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f)
-private val SLEEP_MINUTES = listOf(5, 15, 30, 60)
+internal val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f)
+internal val SLEEP_MINUTES = listOf(5, 15, 30, 60)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     recordingId: Long,
@@ -75,6 +72,8 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = viewModel(factory = PlayerViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val accents = LocalAccents.current
+    var sheetTab by remember { mutableStateOf<OptionsTab?>(null) }
     LaunchedEffect(recordingId) { viewModel.load(recordingId) }
 
     val recording = state.recording
@@ -111,6 +110,7 @@ fun PlayerScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -153,14 +153,14 @@ fun PlayerScreen(
                         )
                     }
                 } else {
-                WaveformScrubber(
-                    peaks = state.peaks,
-                    progress = state.progress,
-                    onSeek = viewModel::seekToFraction,
-                    bookmarks = recording?.bookmarks.orEmpty().mapNotNull { bookmark ->
-                        state.durationMs.takeIf { it > 0 }?.let { bookmark.toFloat() / it }
-                    },
-                )
+                    WaveformScrubber(
+                        peaks = state.peaks,
+                        progress = state.progress,
+                        onSeek = viewModel::seekToFraction,
+                        bookmarks = recording?.bookmarks.orEmpty().mapNotNull { bookmark ->
+                            state.durationMs.takeIf { it > 0 }?.let { bookmark.toFloat() / it }
+                        },
+                    )
                 }
             }
 
@@ -179,6 +179,11 @@ fun PlayerScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape),
+                    // Red means record everywhere else in the app; playback is sage.
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = accents.playback,
+                        contentColor = Color.White,
+                    ),
                 ) {
                     Icon(
                         imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -193,84 +198,26 @@ fun PlayerScreen(
 
             Spacer(Modifier.height(18.dp))
 
+            // One row of three, each opening the options sheet. Three separate
+            // horizontally scrolling chip rows fought with the page's own
+            // scrolling and pushed the notes field off the bottom.
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                SPEEDS.forEach { speed ->
-                    FilterChip(
-                        selected = state.speed == speed,
-                        onClick = { viewModel.setSpeed(speed) },
-                        label = { Text(if (speed == 1f) "1x" else "${speed}x") },
+                OutlinedButton(onClick = { sheetTab = OptionsTab.SPEED }, modifier = Modifier.weight(1f)) {
+                    Text(speedLabel(state.speed), maxLines = 1)
+                }
+                OutlinedButton(onClick = { sheetTab = OptionsTab.SLEEP }, modifier = Modifier.weight(1f)) {
+                    Text(
+                        state.sleepTimerMinutes?.let { formatDuration(state.sleepTimerRemainingMs) } ?: "Sleep",
+                        maxLines = 1,
                     )
                 }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(
-                    text = state.sleepTimerMinutes?.let { formatDuration(state.sleepTimerRemainingMs) } ?: "Sleep",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                SLEEP_MINUTES.forEach { minutes ->
-                    FilterChip(
-                        selected = state.sleepTimerMinutes == minutes,
-                        onClick = {
-                            viewModel.setSleepTimer(if (state.sleepTimerMinutes == minutes) null else minutes)
-                        },
-                        label = { Text("${minutes}m") },
-                    )
+                OutlinedButton(onClick = { sheetTab = OptionsTab.BOOKMARKS }, modifier = Modifier.weight(1f)) {
+                    val count = recording?.bookmarks.orEmpty().size
+                    Text(if (count == 0) "Marks" else "Marks $count", maxLines = 1)
                 }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AssistChip(
-                    onClick = viewModel::addBookmarkHere,
-                    label = { Text("Bookmark here") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Bookmark, contentDescription = null, Modifier.size(18.dp))
-                    },
-                )
-                // Long-press removes; tapping jumps.
-                recording?.bookmarks.orEmpty().forEach { position ->
-                    Box(
-                        Modifier.combinedClickable(
-                            onClick = { viewModel.jumpToBookmark(position) },
-                            onLongClick = { viewModel.removeBookmark(position) },
-                        ),
-                    ) {
-                        SuggestionChip(
-                            onClick = { viewModel.jumpToBookmark(position) },
-                            label = { Text(formatDuration(position)) },
-                        )
-                    }
-                }
-            }
-            if (recording?.bookmarks.orEmpty().isNotEmpty()) {
-                Text(
-                    text = "Long-press a bookmark to remove it.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
             }
 
             Spacer(Modifier.height(20.dp))
@@ -289,6 +236,24 @@ fun PlayerScreen(
                         .height(110.dp),
                 )
             }
+
+            Spacer(Modifier.height(24.dp))
         }
     }
+
+    sheetTab?.let { tab ->
+        PlayerOptionsSheet(
+            tab = tab,
+            state = state,
+            bookmarks = recording?.bookmarks.orEmpty(),
+            onSpeed = viewModel::setSpeed,
+            onSleep = viewModel::setSleepTimer,
+            onAddBookmark = viewModel::addBookmarkHere,
+            onJumpBookmark = viewModel::jumpToBookmark,
+            onRemoveBookmark = viewModel::removeBookmark,
+            onDismiss = { sheetTab = null },
+        )
+    }
 }
+
+enum class OptionsTab { SPEED, SLEEP, BOOKMARKS }

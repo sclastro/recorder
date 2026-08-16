@@ -64,7 +64,7 @@ import com.sclastro.recorder.ui.components.LiveWaveform
 import com.sclastro.recorder.ui.components.RecordButton
 import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.ui.theme.TimerLarge
-import com.sclastro.recorder.util.formatDurationPrecise
+import com.sclastro.recorder.util.formatDuration
 import com.sclastro.recorder.util.formatSize
 
 @Composable
@@ -167,7 +167,7 @@ fun RecordScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = formatDurationPrecise(state.elapsedMs),
+                text = formatDuration(state.elapsedMs),
                 style = TimerLarge,
                 color = if (paused) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
