@@ -198,6 +198,8 @@ fun WaveformScrubber(
     onSeek: ((Float) -> Unit)? = null,
     onSelectionChange: ((ClosedFloatingPointRange<Float>) -> Unit)? = null,
     bookmarks: List<Float> = emptyList(),
+    /** A-B repeat range, drawn as a tinted band with edge markers. */
+    loop: ClosedFloatingPointRange<Float>? = null,
     /** What TalkBack announces; callers know the real times, this only has fractions. */
     label: String = "Waveform",
 ) {
@@ -291,6 +293,24 @@ fun WaveformScrubber(
                     strokeWidth = barWidth,
                     cap = StrokeCap.Round,
                 )
+            }
+
+            if (loop != null) {
+                val from = loop.start.coerceIn(0f, 1f) * size.width
+                val to = loop.endInclusive.coerceIn(0f, 1f) * size.width
+                drawRect(
+                    color = accents.playback.copy(alpha = 0.14f),
+                    topLeft = Offset(from, 0f),
+                    size = Size((to - from).coerceAtLeast(1f), size.height),
+                )
+                listOf(from, to).forEach { x ->
+                    drawLine(
+                        color = accents.playback,
+                        start = Offset(x, 0f),
+                        end = Offset(x, size.height),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                }
             }
 
             bookmarks.forEach { fraction ->

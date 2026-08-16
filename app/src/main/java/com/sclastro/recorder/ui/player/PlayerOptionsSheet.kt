@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -36,11 +37,17 @@ import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.ui.theme.MonoSmall
 import com.sclastro.recorder.util.formatDuration
 
+/** 0 is off; the enhancer is capped so a tap cannot turn speech into noise. */
+private val GAIN_STEPS = listOf(0, 3, 6, 10, 15, 20)
+
 /**
  * Speed, sleep timer and bookmarks used to sit on the player as three separate
  * horizontally scrolling rows. They fought with the page's own scrolling and
- * pushed the notes field off the bottom, so they live here instead, behind one
- * row of three buttons.
+ * pushed the notes field off the bottom, so they live here instead, behind a
+ * row of buttons.
+ *
+ * A-B repeat is deliberately not here: both of its ends mean "here", and
+ * opening a sheet moves the playhead out from under the choice.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -49,6 +56,8 @@ fun PlayerOptionsSheet(
     state: PlayerUiState,
     bookmarks: List<Long>,
     onSpeed: (Float) -> Unit,
+    onSkipSilence: (Boolean) -> Unit,
+    onGain: (Int) -> Unit,
     onSleep: (Int?) -> Unit,
     onAddBookmark: () -> Unit,
     onJumpBookmark: (Long) -> Unit,
@@ -66,8 +75,8 @@ fun PlayerOptionsSheet(
                 .padding(bottom = 28.dp),
         ) {
             when (tab) {
-                OptionsTab.SPEED -> {
-                    SheetTitle("Playback speed")
+                OptionsTab.SOUND -> {
+                    SheetTitle("Speed")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SPEEDS.forEach { speed ->
                             FilterChip(
@@ -76,6 +85,38 @@ fun PlayerOptionsSheet(
                                 label = { Text(speedLabel(speed)) },
                             )
                         }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    SheetTitle("Volume boost")
+                    Text(
+                        text = "Lifts a recording made too far from the microphone. " +
+                            "Too much will distort it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GAIN_STEPS.forEach { db ->
+                            FilterChip(
+                                selected = state.gainDb == db,
+                                onClick = { onGain(db) },
+                                label = { Text(if (db == 0) "Off" else "+$db dB") },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Skip silence", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "Shortens the gaps in a long meeting",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = state.skipSilence, onCheckedChange = onSkipSilence)
                     }
                 }
 

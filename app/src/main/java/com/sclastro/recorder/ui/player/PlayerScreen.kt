@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,6 +62,9 @@ import com.sclastro.recorder.util.formatSize
 import com.sclastro.recorder.util.formatTimestamp
 
 internal val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f)
+
+/** Four buttons across a phone leaves no room for the default 24dp sides. */
+private val TightButton = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
 internal val SLEEP_MINUTES = listOf(5, 15, 30, 60)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -160,6 +165,11 @@ fun PlayerScreen(
                         bookmarks = recording?.bookmarks.orEmpty().mapNotNull { bookmark ->
                             state.durationMs.takeIf { it > 0 }?.let { bookmark.toFloat() / it }
                         },
+                        loop = state.loopStartMs?.let { start ->
+                            state.loopEndMs?.let { end ->
+                                state.fractionOf(start)..state.fractionOf(end)
+                            }
+                        },
                         label = "Waveform, ${formatDuration(state.positionMs)} of " +
                             formatDuration(state.durationMs),
                     )
@@ -205,21 +215,67 @@ fun PlayerScreen(
             // scrolling and pushed the notes field off the bottom.
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                OutlinedButton(onClick = { sheetTab = OptionsTab.SPEED }, modifier = Modifier.weight(1f)) {
+                // A-B acts on the spot rather than opening a sheet: both ends
+                // are "here", and a sheet would move the playhead out from
+                // under the choice. One button, three states.
+                OutlinedButton(
+                    onClick = viewModel::cycleLoopPoint,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = TightButton,
+                    colors = if (state.loopStartMs != null) {
+                        ButtonDefaults.outlinedButtonColors(contentColor = accents.playback)
+                    } else {
+                        ButtonDefaults.outlinedButtonColors()
+                    },
+                ) {
+                    Text(
+                        text = when {
+                            state.looping -> "A-B on"
+                            state.loopStartMs != null -> "Set B"
+                            else -> "A-B"
+                        },
+                        maxLines = 1,
+                    )
+                }
+                OutlinedButton(
+                    onClick = { sheetTab = OptionsTab.SOUND },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = TightButton,
+                ) {
                     Text(speedLabel(state.speed), maxLines = 1)
                 }
-                OutlinedButton(onClick = { sheetTab = OptionsTab.SLEEP }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { sheetTab = OptionsTab.SLEEP },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = TightButton,
+                ) {
                     Text(
                         state.sleepTimerMinutes?.let { formatDuration(state.sleepTimerRemainingMs) } ?: "Sleep",
                         maxLines = 1,
                     )
                 }
-                OutlinedButton(onClick = { sheetTab = OptionsTab.BOOKMARKS }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { sheetTab = OptionsTab.BOOKMARKS },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = TightButton,
+                ) {
                     val count = recording?.bookmarks.orEmpty().size
                     Text(if (count == 0) "Marks" else "Marks $count", maxLines = 1)
                 }
+            }
+
+            if (state.loopStartMs != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = state.loopEndMs?.let {
+                        "Repeating ${formatDuration(state.loopStartMs!!)} – ${formatDuration(it)}" +
+                            " · tap A-B to clear"
+                    } ?: "Loop starts at ${formatDuration(state.loopStartMs!!)} · play on and tap Set B",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accents.playback,
+                )
             }
 
             Spacer(Modifier.height(24.dp))
@@ -249,6 +305,8 @@ fun PlayerScreen(
             state = state,
             bookmarks = recording?.bookmarks.orEmpty(),
             onSpeed = viewModel::setSpeed,
+            onSkipSilence = viewModel::setSkipSilence,
+            onGain = viewModel::setGainDb,
             onSleep = viewModel::setSleepTimer,
             onAddBookmark = viewModel::addBookmarkHere,
             onJumpBookmark = viewModel::jumpToBookmark,
@@ -258,4 +316,4 @@ fun PlayerScreen(
     }
 }
 
-enum class OptionsTab { SPEED, SLEEP, BOOKMARKS }
+enum class OptionsTab { SOUND, SLEEP, BOOKMARKS }

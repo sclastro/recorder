@@ -17,6 +17,7 @@ import com.sclastro.recorder.AppContainer
 import com.sclastro.recorder.audio.PeakGenerator
 import com.sclastro.recorder.audio.Peaks
 import com.sclastro.recorder.data.Recording
+import com.sclastro.recorder.service.PlaybackCommands
 import com.sclastro.recorder.service.PlaybackService
 import com.sclastro.recorder.ui.containerViewModelFactory
 import com.google.common.util.concurrent.ListenableFuture
@@ -41,9 +42,20 @@ data class PlayerUiState(
     /** Minutes until playback pauses itself, or null when no timer is set. */
     val sleepTimerMinutes: Int? = null,
     val sleepTimerRemainingMs: Long = 0,
+    val skipSilence: Boolean = false,
+    val gainDb: Int = 0,
+    /** Start of an A-B loop; set before [loopEndMs] can be. */
+    val loopStartMs: Long? = null,
+    val loopEndMs: Long? = null,
 ) {
     val progress: Float
         get() = if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+
+    /** True once both ends are set and playback is being held between them. */
+    val looping: Boolean get() = loopStartMs != null && loopEndMs != null
+
+    fun fractionOf(positionMs: Long): Float =
+        if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
 
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -149,6 +161,8 @@ class PlayerViewModel(
             )
             return
         }
+        // A loop belongs to the recording it was drawn on.
+        _state.value = _state.value.copy(loopStartMs = null, loopEndMs = null)
         current.setMediaItem(
             MediaItem.Builder()
                 .setMediaId(recording.id.toString())
@@ -179,16 +193,71 @@ class PlayerViewModel(
             while (isActive) {
                 controller?.let { player ->
                     if (player.isPlaying) {
-                        _state.value = _state.value.copy(
-                            positionMs = player.currentPosition.coerceAtLeast(0),
-                            durationMs = player.duration.takeIf { it > 0 } ?: _state.value.durationMs,
-                        )
-                        schedulePositionSave()
+                        val position = player.currentPosition.coerceAtLeast(0)
+                        val current = _state.value
+
+                        // A-B repeat is enforced here rather than by the player:
+                        // ExoPlayer can loop a whole item but not a range of one.
+                        val loopEnd = current.loopEndMs
+                        val loopStart = current.loopStartMs
+                        if (loopEnd != null && loopStart != null && position >= loopEnd) {
+                            player.seekTo(loopStart)
+                            _state.value = current.copy(positionMs = loopStart)
+                        } else {
+                            _state.value = current.copy(
+                                positionMs = position,
+                                durationMs = player.duration.takeIf { it > 0 } ?: current.durationMs,
+                            )
+                            schedulePositionSave()
+                        }
                     }
                 }
                 delay(60)
             }
         }
+    }
+
+    // ---- A-B repeat ---------------------------------------------------------
+
+    /**
+     * Cycles through the three states one button can express: set A here, set
+     * B here, clear. Nothing is enforced until both ends exist, and B has to be
+     * after A or the tap just moves A instead.
+     */
+    fun cycleLoopPoint() {
+        val current = _state.value
+        val here = current.positionMs
+        _state.value = when {
+            current.loopStartMs == null -> current.copy(loopStartMs = here)
+            current.loopEndMs == null && here > current.loopStartMs + MIN_LOOP_MS ->
+                current.copy(loopEndMs = here)
+            current.loopEndMs == null -> current.copy(loopStartMs = here)
+            else -> current.copy(loopStartMs = null, loopEndMs = null)
+        }
+    }
+
+    fun clearLoop() {
+        _state.value = _state.value.copy(loopStartMs = null, loopEndMs = null)
+    }
+
+    // ---- Session-only settings ----------------------------------------------
+
+    /**
+     * Both of these are ExoPlayer properties with no equivalent on the Player
+     * interface, so they travel to the service as custom session commands.
+     */
+    fun setSkipSilence(enabled: Boolean) {
+        _state.value = _state.value.copy(skipSilence = enabled)
+        controller?.sendCustomCommand(
+            PlaybackCommands.skipSilence,
+            PlaybackCommands.skipSilenceArgs(enabled),
+        )
+    }
+
+    fun setGainDb(db: Int) {
+        val clamped = db.coerceIn(0, PlaybackCommands.MAX_GAIN_DB)
+        _state.value = _state.value.copy(gainDb = clamped)
+        controller?.sendCustomCommand(PlaybackCommands.setGain, PlaybackCommands.gainArgs(clamped))
     }
 
     /** Writes the resume point at most once every few seconds. */
@@ -327,6 +396,7 @@ class PlayerViewModel(
         private const val POSITION_SAVE_INTERVAL_MS = 5_000L
         private const val RESUME_THRESHOLD_MS = 3_000L
         private const val BOOKMARK_MERGE_MS = 500L
+        private const val MIN_LOOP_MS = 500L
 
         val Factory = containerViewModelFactory { container, app -> PlayerViewModel(container, app) }
     }
