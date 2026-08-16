@@ -12,6 +12,7 @@ import com.sclastro.recorder.audio.AudioContainer
 import com.sclastro.recorder.audio.BitDepth
 import com.sclastro.recorder.audio.Channels
 import com.sclastro.recorder.audio.MicSource
+import com.sclastro.recorder.audio.RecorderEngine
 import com.sclastro.recorder.audio.RecordingConfig
 import com.sclastro.recorder.data.FileNaming
 import kotlinx.coroutines.flow.Flow
@@ -30,7 +31,19 @@ data class AppSettings(
     val keepScreenOn: Boolean = true,
     val trashRetentionDays: Int = 30,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-)
+    /** Start a new file every N minutes while recording; 0 is off. */
+    val splitMinutes: Int = 0,
+    /** Skip writing while the input stays below [voxThresholdDb]. */
+    val voxEnabled: Boolean = false,
+    val voxThresholdDb: Int = -40,
+) {
+    val capturePolicy: RecorderEngine.Policy
+        get() = RecorderEngine.Policy(
+            splitMinutes = splitMinutes,
+            voxEnabled = voxEnabled,
+            voxThresholdDb = voxThresholdDb.toFloat(),
+        )
+}
 
 class SettingsStore(private val context: Context) {
 
@@ -54,6 +67,9 @@ class SettingsStore(private val context: Context) {
             keepScreenOn = p[KEEP_SCREEN_ON] != false,
             trashRetentionDays = p[TRASH_DAYS] ?: 30,
             themeMode = enumOr(p[THEME], ThemeMode.SYSTEM),
+            splitMinutes = p[SPLIT_MINUTES] ?: 0,
+            voxEnabled = p[VOX] == true,
+            voxThresholdDb = p[VOX_DB] ?: -40,
         )
     }
 
@@ -97,6 +113,18 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[THEME] = value.name }
     }
 
+    suspend fun setSplitMinutes(value: Int) {
+        context.dataStore.edit { it[SPLIT_MINUTES] = value }
+    }
+
+    suspend fun setVoxEnabled(value: Boolean) {
+        context.dataStore.edit { it[VOX] = value }
+    }
+
+    suspend fun setVoxThresholdDb(value: Int) {
+        context.dataStore.edit { it[VOX_DB] = value }
+    }
+
     /** Monotonic counter behind the {seq} filename token. */
     suspend fun nextSequence(): Int {
         var next = 1
@@ -128,5 +156,8 @@ class SettingsStore(private val context: Context) {
         val TRASH_DAYS = intPreferencesKey("trash_days")
         val SEQUENCE = intPreferencesKey("sequence")
         val THEME = stringPreferencesKey("theme")
+        val SPLIT_MINUTES = intPreferencesKey("split_minutes")
+        val VOX = booleanPreferencesKey("vox")
+        val VOX_DB = intPreferencesKey("vox_db")
     }
 }

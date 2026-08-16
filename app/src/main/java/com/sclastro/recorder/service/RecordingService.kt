@@ -26,6 +26,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Keeps capture alive when the app is backgrounded or the screen is off, which
@@ -53,6 +54,9 @@ class RecordingService : LifecycleService() {
      * `onStartCommand` ever got a chance to begin recording.
      */
     private var notificationJob: Job? = null
+
+    /** Collects files closed by auto-split so each one is filed as it lands. */
+    private var segmentJob: Job? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -116,7 +120,17 @@ class RecordingService : LifecycleService() {
         }
 
         val error = try {
-            engine.start(request.config, request.pendingFile)
+            engine.start(
+                rawConfig = request.config,
+                pendingFile = request.pendingFile,
+                policy = request.policy,
+                nextFile = { part ->
+                    File(
+                        container.storage.pendingDir,
+                        "cap_${System.currentTimeMillis()}_p$part.${request.config.container.ext}",
+                    )
+                },
+            )
         } catch (t: Throwable) {
             Log.e(TAG, "capture failed to start", t)
             engine.reportError(t.message ?: "Could not start recording")
@@ -129,6 +143,27 @@ class RecordingService : LifecycleService() {
             acquireWakeLock()
             watchEngineState()
             watchCallState()
+            watchSegments()
+        }
+    }
+
+    /**
+     * Auto-split hands over each finished file while capture carries on, so
+     * they have to be filed as they arrive rather than at the end. Numbered
+     * suffixes keep the parts in order and out of each other's way.
+     */
+    private fun watchSegments() {
+        if (segmentJob?.isActive == true) return
+        segmentJob = lifecycleScope.launch {
+            container.engine.segments.collect { segment ->
+                val request = container.activeRequest ?: return@collect
+                val name = "${request.name.ifBlank { "Recording" }}_part${segment.partNumber}"
+                // appScope, not this one: the service can go away between the
+                // last split and the commit finishing.
+                container.appScope.launch {
+                    container.repository.commitRecording(segment, request.folder, name)
+                }
+            }
         }
     }
 
@@ -211,6 +246,8 @@ class RecordingService : LifecycleService() {
     override fun onDestroy() {
         notificationJob?.cancel()
         notificationJob = null
+        segmentJob?.cancel()
+        segmentJob = null
         stopWatchingCallState()
         releaseWakeLock()
         super.onDestroy()

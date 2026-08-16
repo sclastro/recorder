@@ -29,7 +29,13 @@ class AppContainer(context: Context) {
     val engine = RecorderEngine()
 
     /** Handed from the UI to the foreground service when a capture starts. */
-    data class StartRequest(val config: RecordingConfig, val pendingFile: File, val folder: String, val name: String)
+    data class StartRequest(
+        val config: RecordingConfig,
+        val pendingFile: File,
+        val folder: String,
+        val name: String,
+        val policy: RecorderEngine.Policy = RecorderEngine.Policy(),
+    )
 
     /** Set by the UI, consumed by the service when it comes up. */
     @Volatile var startRequest: StartRequest? = null

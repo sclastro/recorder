@@ -102,7 +102,13 @@ class RecordViewModel(
                 container.storage.pendingDir,
                 "cap_${System.currentTimeMillis()}.${config.container.ext}",
             )
-            container.startRequest = AppContainer.StartRequest(config, pending, folder, name)
+            container.startRequest = AppContainer.StartRequest(
+                config = config,
+                pendingFile = pending,
+                folder = folder,
+                name = name,
+                policy = current.capturePolicy,
+            )
             RecordingService.send(context, RecordingService.ACTION_START)
         }
     }

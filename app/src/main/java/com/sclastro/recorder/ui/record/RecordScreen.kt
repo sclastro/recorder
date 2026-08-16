@@ -62,6 +62,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.audio.PcmMath
 import com.sclastro.recorder.audio.Preset
 import com.sclastro.recorder.audio.RecorderEngine
+import com.sclastro.recorder.ui.components.BookmarkStrip
 import com.sclastro.recorder.ui.components.LevelMeter
 import com.sclastro.recorder.ui.components.LiveWaveform
 import com.sclastro.recorder.ui.components.RecordButton
@@ -187,10 +188,21 @@ fun RecordScreen(
             Spacer(Modifier.height(16.dp))
             LevelMeter(peakDb = state.peakDb, rmsDb = state.rmsDb, clipping = state.clipping)
 
+            // Where the bookmarks are, not just how many. The live waveform
+            // only holds about two seconds, so it could never show this.
+            if (active && state.bookmarksMs.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                BookmarkStrip(bookmarksMs = state.bookmarksMs, elapsedMs = state.elapsedMs)
+            }
+
             if (active) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "${formatSize(state.bytesWritten)} written",
+                    text = buildString {
+                        append(formatSize(state.bytesWritten))
+                        append(" written")
+                        if (settings.splitMinutes > 0) append(" · part ${state.partNumber}")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -272,15 +284,21 @@ fun RecordScreen(
 
         Text(
             text = when {
-                state.bookmarksMs.isNotEmpty() && active ->
-                    if (state.bookmarksMs.size == 1) "1 bookmark added" else "${state.bookmarksMs.size} bookmarks added"
                 paused -> "Paused"
+                // VOX means the mic is open but nothing is being written, and
+                // saying "Recording" through a silence would be a lie.
+                state.voxIdle -> "Waiting for sound"
                 active -> "Recording"
+                settings.voxEnabled -> "Tap to start — recording begins when it hears you"
                 else -> "Tap the button to start recording"
             },
             style = MaterialTheme.typography.bodyMedium,
-            color = if (active) accents.record else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+            color = when {
+                state.voxIdle -> MaterialTheme.colorScheme.onSurfaceVariant
+                active -> accents.record
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            fontWeight = if (active && !state.voxIdle) FontWeight.Medium else FontWeight.Normal,
         )
 
         AnimatedVisibility(visible = active) {

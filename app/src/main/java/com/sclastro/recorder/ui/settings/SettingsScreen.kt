@@ -71,6 +71,9 @@ class SettingsViewModel(
     fun setKeepScreenOn(value: Boolean) = viewModelScope.launch { container.settings.setKeepScreenOn(value) }
     fun setRetention(days: Int) = viewModelScope.launch { container.settings.setTrashRetentionDays(days) }
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { container.settings.setThemeMode(mode) }
+    fun setSplitMinutes(value: Int) = viewModelScope.launch { container.settings.setSplitMinutes(value) }
+    fun setVoxEnabled(value: Boolean) = viewModelScope.launch { container.settings.setVoxEnabled(value) }
+    fun setVoxThreshold(db: Int) = viewModelScope.launch { container.settings.setVoxThresholdDb(db) }
 
     companion object {
         val Factory = containerViewModelFactory { container, app -> SettingsViewModel(container, app) }
@@ -176,6 +179,62 @@ fun SettingsScreen(
                 checked = settings.keepScreenOn,
                 onChange = viewModel::setKeepScreenOn,
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+            SectionTitle("Long recordings")
+            Text(
+                text = "Auto-split closes the current file and starts the next one, so an " +
+                    "all-day recording is a set of manageable files.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = settings.splitMinutes == 0,
+                    onClick = { viewModel.setSplitMinutes(0) },
+                    label = { Text("Off") },
+                )
+                listOf(15, 30, 60, 120).forEach { minutes ->
+                    FilterChip(
+                        selected = settings.splitMinutes == minutes,
+                        onClick = { viewModel.setSplitMinutes(minutes) },
+                        label = { Text(if (minutes < 60) "$minutes min" else "${minutes / 60} h") },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            ToggleRow(
+                title = "Voice activation (VOX)",
+                subtitle = "Stops writing while it is quiet and resumes the moment sound returns",
+                checked = settings.voxEnabled,
+                onChange = viewModel::setVoxEnabled,
+            )
+            if (settings.voxEnabled) {
+                Text(
+                    text = "Threshold ${settings.voxThresholdDb} dB — quieter than this counts as silence.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(-50, -45, -40, -35, -30).forEach { db ->
+                        FilterChip(
+                            selected = settings.voxThresholdDb == db,
+                            onClick = { viewModel.setVoxThreshold(db) },
+                            label = { Text("$db dB") },
+                        )
+                    }
+                }
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 

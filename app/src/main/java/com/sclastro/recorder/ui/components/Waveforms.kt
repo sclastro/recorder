@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sclastro.recorder.audio.Peaks
 import com.sclastro.recorder.ui.theme.LocalAccents
+import com.sclastro.recorder.util.formatDuration
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -129,6 +132,52 @@ fun MiniWaveform(
                 start = Offset(x, centerY - half),
                 end = Offset(x, centerY + half),
                 strokeWidth = barWidth,
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}
+
+/**
+ * A thin bar spanning the recording so far, with a tick per bookmark.
+ *
+ * The live waveform only holds about two seconds, so it could never answer
+ * "where did I put them?" — after the count in the status line said "4
+ * bookmarks added" there was nowhere to see the four.
+ */
+@Composable
+fun BookmarkStrip(
+    bookmarksMs: List<Long>,
+    elapsedMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    val accents = LocalAccents.current
+    val sunk = MaterialTheme.colorScheme.surfaceContainerHighest
+    val description = if (bookmarksMs.size == 1) {
+        "1 bookmark at ${formatDuration(bookmarksMs.first())}"
+    } else {
+        "${bookmarksMs.size} bookmarks"
+    }
+
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(18.dp)
+            .semantics { contentDescription = description },
+    ) {
+        val radius = size.height / 2f
+        drawRoundRect(
+            color = sunk,
+            cornerRadius = CornerRadius(radius, radius),
+        )
+        if (elapsedMs <= 0) return@Canvas
+        bookmarksMs.forEach { at ->
+            val x = (at.toFloat() / elapsedMs).coerceIn(0f, 1f) * size.width
+            drawLine(
+                color = accents.warning,
+                start = Offset(x.coerceIn(1f, size.width - 1f), 2f),
+                end = Offset(x.coerceIn(1f, size.width - 1f), size.height - 2f),
+                strokeWidth = 2.dp.toPx(),
                 cap = StrokeCap.Round,
             )
         }
