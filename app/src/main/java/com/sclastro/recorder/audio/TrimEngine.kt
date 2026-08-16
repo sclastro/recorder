@@ -46,25 +46,14 @@ object TrimEngine {
 
     // ---- WAV: sample-accurate byte copy -------------------------------------
 
-    private data class WavInfo(
-        val dataOffset: Long,
-        val dataLength: Long,
-        val sampleRate: Int,
-        val channels: Int,
-        val bits: Int,
-        val formatTag: Int,
-    ) {
-        val blockAlign: Int get() = channels * (bits / 8)
-    }
-
     private fun trimWav(source: File, destination: File, startMs: Long, endMs: Long): Outcome {
         RandomAccessFile(source, "r").use { input ->
-            val info = readWavInfo(input) ?: return Outcome.Failure("Could not read the WAV structure")
+            val info = WavFile.read(input) ?: return Outcome.Failure("Could not read the WAV structure")
             if (info.blockAlign <= 0) return Outcome.Failure("Unexpected WAV format")
 
             // Work in frames, not bytes-per-millisecond: at 44.1 kHz the latter
             // is not a whole number and the cut would drift.
-            val totalFrames = info.dataLength / info.blockAlign
+            val totalFrames = info.frameCount
             val fromFrame = (startMs * info.sampleRate / 1000).coerceIn(0, totalFrames)
             val toFrame = (endMs * info.sampleRate / 1000).coerceIn(0, totalFrames)
             val frames = toFrame - fromFrame
@@ -72,12 +61,7 @@ object TrimEngine {
             val from = fromFrame * info.blockAlign
             val length = frames * info.blockAlign
 
-            val depth = when {
-                info.formatTag == WavSink.FORMAT_IEEE_FLOAT -> BitDepth.FLOAT_32
-                info.bits == 24 -> BitDepth.PCM_24
-                else -> BitDepth.PCM_16
-            }
-            WavSink(destination, info.sampleRate, info.channels, depth).use { sink ->
+            WavSink(destination, info.sampleRate, info.channels, info.depth).use { sink ->
                 input.seek(info.dataOffset + from)
                 val buffer = ByteArray(COPY_BUFFER)
                 var remaining = length
@@ -94,53 +78,6 @@ object TrimEngine {
             return Outcome.Success(destination, durationMs)
         }
     }
-
-    private fun readWavInfo(input: RandomAccessFile): WavInfo? {
-        if (input.length() < 44) return null
-        val riff = ByteArray(12)
-        input.readFully(riff)
-        if (String(riff, 0, 4, Charsets.US_ASCII) != "RIFF") return null
-        if (String(riff, 8, 4, Charsets.US_ASCII) != "WAVE") return null
-
-        var formatTag = 1
-        var channels = 1
-        var sampleRate = 44100
-        var bits = 16
-        var sawFmt = false
-
-        while (input.filePointer + 8 <= input.length()) {
-            val header = ByteArray(8)
-            input.readFully(header)
-            val id = String(header, 0, 4, Charsets.US_ASCII)
-            val size = le32(header, 4)
-            val body = input.filePointer
-            when (id) {
-                "fmt " -> {
-                    val fmt = ByteArray(minOf(size, 16L).toInt())
-                    input.readFully(fmt)
-                    formatTag = le16(fmt, 0)
-                    channels = le16(fmt, 2)
-                    sampleRate = le32(fmt, 4).toInt()
-                    bits = le16(fmt, 14)
-                    sawFmt = true
-                }
-                "data" -> {
-                    if (!sawFmt) return null
-                    val available = input.length() - body
-                    val length = if (size <= 0 || size > available) available else size
-                    return WavInfo(body, length, sampleRate, channels, bits, formatTag)
-                }
-            }
-            input.seek(body + size + (size % 2))
-        }
-        return null
-    }
-
-    private fun le16(b: ByteArray, o: Int) = (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8)
-
-    private fun le32(b: ByteArray, o: Int): Long =
-        (b[o].toLong() and 0xFF) or ((b[o + 1].toLong() and 0xFF) shl 8) or
-            ((b[o + 2].toLong() and 0xFF) shl 16) or ((b[o + 3].toLong() and 0xFF) shl 24)
 
     // ---- Compressed: packet copy through a muxer ----------------------------
 

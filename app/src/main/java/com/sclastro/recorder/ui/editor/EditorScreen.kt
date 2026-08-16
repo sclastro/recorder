@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,9 @@ import com.sclastro.recorder.ui.library.TextInputDialog
 import com.sclastro.recorder.ui.theme.LocalAccents
 import com.sclastro.recorder.ui.theme.MonoSmall
 import com.sclastro.recorder.util.formatDurationPrecise
+
+/** Two seconds is long enough to hear and short enough not to eat the content. */
+private const val FADE_MS = 2_000L
 
 /**
  * Trim view: drag the two handles, preview, then write the selection out —
@@ -239,6 +243,60 @@ fun EditorScreen(
                 onMinus = { viewModel.nudgeEnd(-100) },
                 onPlus = { viewModel.nudgeEnd(100) },
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+            Text(
+                text = "Other edits",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "These ignore the handles and act on the whole recording. " +
+                    "Each one writes a new file.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = viewModel::splitHere,
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Split at ${formatDurationPrecise(state.positionMs)}")
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.applyFade(FADE_MS, FADE_MS) },
+                    enabled = !state.busy && state.sampleEditable,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Fade ends", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = viewModel::applyNormalize,
+                    enabled = !state.busy && state.sampleEditable,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Normalise", maxLines = 1)
+                }
+            }
+            if (!state.sampleEditable && state.recording != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Fading and normalising need a WAV recording — on a compressed " +
+                        "file they would mean re-encoding, and quality would drop each time.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
         }

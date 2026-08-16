@@ -1,12 +1,17 @@
 package com.sclastro.recorder.ui.library
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sclastro.recorder.AppContainer
+import com.sclastro.recorder.audio.ExportEngine
+import com.sclastro.recorder.audio.PeakGenerator
 import com.sclastro.recorder.audio.Peaks
 import com.sclastro.recorder.data.FolderInfo
+import com.sclastro.recorder.data.MediaProbe
 import com.sclastro.recorder.data.Recording
+import com.sclastro.recorder.data.RecordingStorage
 import com.sclastro.recorder.ui.containerViewModelFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -149,6 +154,117 @@ class LibraryViewModel(
     fun renameFolder(from: String, to: String) = viewModelScope.launch {
         container.repository.renameFolder(from, to)
         if (folderFilter.value == from) folderFilter.value = to
+    }
+
+    // ---- Import and export --------------------------------------------------
+
+    /** Set while a long-running import or export is happening. */
+    private val _working = MutableStateFlow<String?>(null)
+    val working: StateFlow<String?> = _working
+
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+
+    fun consumeMessage() { _message.value = null }
+
+    /**
+     * Copies an audio file chosen elsewhere on the device into the library so
+     * it can be trimmed and filed like anything recorded here. The source is
+     * only ever read — this is a copy, not a move.
+     */
+    fun importFrom(uri: Uri, displayName: String?) {
+        if (_working.value != null) return
+        _working.value = "Importing…"
+        viewModelScope.launch {
+            val resolver = getApplication<Application>().contentResolver
+            val imported = withContext(Dispatchers.IO) {
+                runCatching {
+                    val base = RecordingStorage.sanitiseName(
+                        displayName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() } ?: "Imported",
+                    )
+                    val extension = displayName?.substringAfterLast('.', "")
+                        ?.takeIf { it.isNotBlank() && it.length <= 5 }
+                        ?: "m4a"
+                    val target = container.storage.uniqueFile(container.storage.root, base, extension)
+                    resolver.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { output -> input.copyTo(output) }
+                    } ?: return@runCatching null
+                    target
+                }.getOrNull()
+            }
+
+            if (imported == null) {
+                _working.value = null
+                _message.value = "Could not read that file"
+                return@launch
+            }
+
+            val probe = withContext(Dispatchers.IO) { MediaProbe.probe(imported) }
+            if (probe.durationMs <= 0) {
+                // Nothing decodable: better to remove it than leave a file the
+                // library shows but cannot play.
+                withContext(Dispatchers.IO) { imported.delete() }
+                _working.value = null
+                _message.value = "That file does not contain audio this app can read"
+                return@launch
+            }
+
+            withContext(Dispatchers.IO) {
+                PeakGenerator.generate(imported)?.let { Peaks.save(imported, it) }
+            }
+            container.repository.registerFile(
+                file = imported,
+                folder = "",
+                durationMs = probe.durationMs,
+                sampleRate = probe.sampleRate,
+                bitDepth = probe.bitDepth,
+                channels = probe.channels,
+                format = imported.extension.uppercase(),
+            )
+            _working.value = null
+            _message.value = "Imported ${imported.nameWithoutExtension}"
+        }
+    }
+
+    /**
+     * Writes a smaller AAC copy next to the original. Sharing sends the real
+     * file, which is right until it is an hour of WAV and nothing will accept
+     * it. Returns through [message]; the export lands in the library.
+     */
+    fun exportSmaller(recording: Recording, bitrateKbps: Int) {
+        if (_working.value != null) return
+        _working.value = "Exporting…"
+        viewModelScope.launch {
+            val destination = withContext(Dispatchers.IO) {
+                container.storage.uniqueFile(
+                    container.storage.folderDir(recording.folder),
+                    RecordingStorage.sanitiseName("${recording.displayName}_${bitrateKbps}k"),
+                    "m4a",
+                )
+            }
+            when (val outcome = withContext(Dispatchers.IO) {
+                ExportEngine.export(recording.file, destination, bitrateKbps)
+            }) {
+                is ExportEngine.Outcome.Success -> {
+                    val probe = withContext(Dispatchers.IO) { MediaProbe.probe(outcome.file) }
+                    container.repository.registerFile(
+                        file = outcome.file,
+                        folder = recording.folder,
+                        durationMs = outcome.durationMs.takeIf { it > 0 } ?: probe.durationMs,
+                        sampleRate = probe.sampleRate.takeIf { it > 0 } ?: recording.sampleRate,
+                        bitDepth = 16,
+                        channels = probe.channels.takeIf { it > 0 } ?: recording.channels,
+                        format = "M4A",
+                    )
+                    _working.value = null
+                    _message.value = "Exported at $bitrateKbps kbps"
+                }
+                is ExportEngine.Outcome.Failure -> {
+                    _working.value = null
+                    _message.value = outcome.message
+                }
+            }
+        }
     }
 
     private val _refreshing = MutableStateFlow(false)

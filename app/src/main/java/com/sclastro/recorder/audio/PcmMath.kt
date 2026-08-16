@@ -69,4 +69,48 @@ object PcmMath {
     /** Maps dBFS onto 0..1 for meters and waveforms. */
     fun dbToFraction(db: Float, floor: Float = -60f): Float =
         ((db - floor) / -floor).coerceIn(0f, 1f)
+
+    /**
+     * Narrows [size] bytes of PCM at [depth] down to little-endian 16-bit,
+     * which is the only thing the encoders accept. A 16-bit input is copied
+     * unchanged rather than round-tripped.
+     */
+    fun toPcm16(buffer: ByteArray, size: Int, depth: BitDepth): ByteArray = when (depth) {
+        BitDepth.PCM_16 -> buffer.copyOf(size)
+
+        BitDepth.PCM_24 -> {
+            val samples = size / 3
+            val out = ByteArray(samples * 2)
+            var i = 0
+            var o = 0
+            while (i + 2 < size) {
+                // Keep the top two bytes; the third is the detail being dropped.
+                out[o] = buffer[i + 1]
+                out[o + 1] = buffer[i + 2]
+                i += 3
+                o += 2
+            }
+            out
+        }
+
+        BitDepth.FLOAT_32 -> {
+            val samples = size / 4
+            val out = ByteArray(samples * 2)
+            var i = 0
+            var o = 0
+            while (i + 3 < size) {
+                val bits = (buffer[i].toInt() and 0xFF) or
+                    ((buffer[i + 1].toInt() and 0xFF) shl 8) or
+                    ((buffer[i + 2].toInt() and 0xFF) shl 16) or
+                    ((buffer[i + 3].toInt() and 0xFF) shl 24)
+                val f = Float.fromBits(bits)
+                val v = if (f.isNaN()) 0 else (f.coerceIn(-1f, 1f) * 32767f).toInt()
+                out[o] = (v and 0xFF).toByte()
+                out[o + 1] = ((v shr 8) and 0xFF).toByte()
+                i += 4
+                o += 2
+            }
+            out
+        }
+    }
 }

@@ -1,5 +1,10 @@
 package com.sclastro.recorder.ui.library
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -25,6 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Compress
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Delete
@@ -41,6 +48,7 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,6 +68,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -69,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -117,10 +127,31 @@ fun LibraryScreen(
     }
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
     var moveTarget by remember { mutableStateOf<Recording?>(null) }
+    var exportTarget by remember { mutableStateOf<Recording?>(null) }
     var showFolders by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
-    Column(modifier.fillMaxSize()) {
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) viewModel.importFrom(uri, displayNameOf(context, uri))
+    }
+
+    val working by viewModel.working.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    LaunchedEffect(message) {
+        message?.let {
+            snackbars.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+
+    // The Undo prompt and the import/export results need somewhere to land.
+    // Without a host, showSnackbar suspends and nothing is ever drawn — which
+    // is what happened to swipe-to-bin's Undo until this was added.
+    Box(modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = state.query,
             onValueChange = viewModel::setQuery,
@@ -219,6 +250,14 @@ fun LibraryScreen(
                         onClick = {
                             showMenu = false
                             showFolders = true
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Import audio") },
+                        leadingIcon = { Icon(Icons.Filled.FileOpen, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            importLauncher.launch(arrayOf("audio/*"))
                         },
                     )
                     DropdownMenuItem(
@@ -343,12 +382,43 @@ fun LibraryScreen(
                         onMove = { moveTarget = recording },
                         onEdit = { onEdit(recording) },
                         onShare = { onShare(recording) },
+                        onExport = { exportTarget = recording },
                         onDelete = { viewModel.moveToTrash(recording.id) },
                     )
                 }
             }
             }
         }
+    }
+
+        working?.let { label ->
+            Row(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 8.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(label, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter))
+    }
+
+    exportTarget?.let { target ->
+        ExportDialog(
+            recording = target,
+            onExport = {
+                viewModel.exportSmaller(target, it)
+                exportTarget = null
+            },
+            onDismiss = { exportTarget = null },
+        )
     }
 
     renameTarget?.let { target ->
@@ -406,6 +476,7 @@ private fun RecordingRow(
     onMove: () -> Unit,
     onEdit: () -> Unit,
     onShare: () -> Unit,
+    onExport: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val accents = LocalAccents.current
@@ -570,6 +641,11 @@ private fun RecordingRow(
                     leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
                     onClick = { menuOpen = false; onShare() },
                 )
+                DropdownMenuItem(
+                    text = { Text("Export smaller") },
+                    leadingIcon = { Icon(Icons.Filled.Compress, contentDescription = null) },
+                    onClick = { menuOpen = false; onExport() },
+                )
                 HorizontalDivider()
                 DropdownMenuItem(
                     text = { Text("Delete") },
@@ -636,3 +712,11 @@ fun EmptyState(
         }
     }
 }
+
+/** The name SAF reports for a picked document, so the import keeps it. */
+private fun displayNameOf(context: Context, uri: Uri): String? = runCatching {
+    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+}.getOrNull()

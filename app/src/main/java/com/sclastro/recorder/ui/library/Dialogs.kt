@@ -2,6 +2,8 @@ package com.sclastro.recorder.ui.library
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -28,6 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sclastro.recorder.audio.ExportEngine
+import com.sclastro.recorder.data.Recording
+import com.sclastro.recorder.util.formatSize
 import com.sclastro.recorder.ui.record.NewFolderDialog
 
 @Composable
@@ -89,6 +94,51 @@ fun FolderPickerDialog(
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
+/**
+ * Picks a bitrate for a smaller copy. This is the one place in the app that
+ * throws quality away on purpose, so the dialog says what the trade is and
+ * roughly how big the result will be.
+ */
+@Composable
+fun ExportDialog(
+    recording: Recording,
+    onExport: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Export smaller") },
+        text = {
+            Column {
+                Text(
+                    text = "Writes an AAC copy alongside the original, which is left alone. " +
+                        "64 kbps is plenty for speech.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                ExportEngine.BITRATES.forEach { kbps ->
+                    val estimate = recording.durationMs / 1000 * kbps * 1000 / 8
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onExport(kbps) }
+                            .padding(vertical = 10.dp),
+                    ) {
+                        Text("$kbps kbps", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(
+                            text = "about ${formatSize(estimate)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 

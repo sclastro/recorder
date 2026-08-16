@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.sclastro.recorder.AppContainer
 import com.sclastro.recorder.audio.PeakGenerator
 import com.sclastro.recorder.audio.Peaks
+import com.sclastro.recorder.audio.EditEngine
 import com.sclastro.recorder.audio.TrimEngine
 import com.sclastro.recorder.data.MediaProbe
 import com.sclastro.recorder.data.Recording
@@ -38,6 +39,9 @@ data class EditorUiState(
     val message: String? = null,
     val savedId: Long? = null,
 ) {
+    /** Whether fades and normalising are available; see [EditEngine]. */
+    val sampleEditable: Boolean get() = recording?.let { EditEngine.supports(it.file) } == true
+
     val selection: ClosedFloatingPointRange<Float>
         get() = if (durationMs <= 0) 0f..1f else {
             (startMs.toFloat() / durationMs).coerceIn(0f, 1f)..(endMs.toFloat() / durationMs).coerceIn(0f, 1f)
@@ -251,6 +255,116 @@ class EditorViewModel(
         }
     }
 
+    /**
+     * Cuts the recording in two at the playhead and files both halves. Both
+     * are trims, so this is lossless whatever the format; the original stays
+     * put so nothing is lost if only one half turns out to be wanted.
+     */
+    fun splitHere() {
+        val current = _state.value
+        val recording = current.recording ?: return
+        if (current.busy) return
+        val at = current.positionMs
+        if (at < MIN_PART_MS || at > current.durationMs - MIN_PART_MS) {
+            _state.value = current.copy(message = "Move the playhead further from the ends first")
+            return
+        }
+        _state.value = current.copy(busy = true, message = null)
+
+        viewModelScope.launch {
+            val halves = listOf(0L to at, at to current.durationMs)
+            var saved = 0
+            var failure: String? = null
+
+            halves.forEachIndexed { index, (from, to) ->
+                if (failure != null) return@forEachIndexed
+                val destination = withContext(Dispatchers.IO) {
+                    container.storage.uniqueFile(
+                        container.storage.folderDir(recording.folder),
+                        RecordingStorage.sanitiseName("${recording.displayName}_${index + 1}"),
+                        recording.file.extension,
+                    )
+                }
+                when (val outcome = withContext(Dispatchers.IO) {
+                    TrimEngine.trim(recording.file, destination, from, to)
+                }) {
+                    is TrimEngine.Outcome.Success -> {
+                        register(outcome, recording)
+                        saved++
+                    }
+                    is TrimEngine.Outcome.Failure -> failure = outcome.message
+                }
+            }
+
+            _state.value = _state.value.copy(
+                busy = false,
+                message = failure ?: "Split into $saved files",
+            )
+        }
+    }
+
+    /** Ramps the first and last few seconds; WAV only, see [EditEngine]. */
+    fun applyFade(fadeInMs: Long, fadeOutMs: Long) = runEdit { source, destination ->
+        EditEngine.fade(source, destination, fadeInMs, fadeOutMs)
+    }
+
+    /** Lifts the whole file to just under clipping; WAV only, see [EditEngine]. */
+    fun applyNormalize() = runEdit { source, destination ->
+        EditEngine.normalize(source, destination)
+    }
+
+    private fun runEdit(edit: (File, File) -> EditEngine.Outcome) {
+        val current = _state.value
+        val recording = current.recording ?: return
+        if (current.busy) return
+        if (!EditEngine.supports(recording.file)) {
+            _state.value = current.copy(
+                message = "Fades and normalising need a WAV recording",
+            )
+            return
+        }
+        _state.value = current.copy(busy = true, message = null)
+
+        viewModelScope.launch {
+            val destination = withContext(Dispatchers.IO) {
+                container.storage.uniqueFile(
+                    container.storage.folderDir(recording.folder),
+                    RecordingStorage.sanitiseName("${recording.displayName}_edited"),
+                    recording.file.extension,
+                )
+            }
+            when (val outcome = withContext(Dispatchers.IO) { edit(recording.file, destination) }) {
+                is EditEngine.Outcome.Success -> {
+                    val saved = registerEdited(outcome.file, outcome.durationMs, recording)
+                    _state.value = _state.value.copy(
+                        busy = false,
+                        message = "Saved as a new file",
+                        savedId = saved?.id,
+                    )
+                }
+                is EditEngine.Outcome.Failure -> {
+                    _state.value = _state.value.copy(busy = false, message = outcome.message)
+                }
+            }
+        }
+    }
+
+    private suspend fun register(outcome: TrimEngine.Outcome.Success, from: Recording) =
+        registerEdited(outcome.file, outcome.durationMs, from)
+
+    private suspend fun registerEdited(file: File, durationMs: Long, from: Recording): Recording? {
+        val probe = withContext(Dispatchers.IO) { MediaProbe.probe(file) }
+        return container.repository.registerFile(
+            file = file,
+            folder = from.folder,
+            durationMs = durationMs.takeIf { it > 0 } ?: probe.durationMs,
+            sampleRate = probe.sampleRate.takeIf { it > 0 } ?: from.sampleRate,
+            bitDepth = probe.bitDepth.takeIf { it > 0 } ?: from.bitDepth,
+            channels = probe.channels.takeIf { it > 0 } ?: from.channels,
+            format = from.format,
+        )
+    }
+
     private suspend fun trimTo(destination: File, from: EditorUiState): TrimEngine.Outcome {
         val recording = from.recording ?: return TrimEngine.Outcome.Failure("Nothing loaded")
         return withContext(Dispatchers.IO) {
@@ -270,6 +384,9 @@ class EditorViewModel(
 
     companion object {
         private const val MIN_SELECTION_MS = 100L
+
+        /** A split has to leave something worth keeping on both sides. */
+        private const val MIN_PART_MS = 1_000L
 
         val Factory = containerViewModelFactory { container, app -> EditorViewModel(container, app) }
     }
