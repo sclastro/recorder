@@ -109,9 +109,15 @@ class PlayerViewModel(
                 val ready = runCatching { future.get() }.getOrNull() ?: return@addListener
                 controller = ready
                 ready.addListener(listener)
+                // Speed, boost and skip-silence belong to the session, not to
+                // this screen. Opening a second recording builds a fresh
+                // ViewModel, and without reading them back the sheet claimed
+                // everything was off while the audio was still boosted.
                 _state.value = _state.value.copy(
                     playing = ready.isPlaying,
                     speed = ready.playbackParameters.speed,
+                    skipSilence = PlaybackCommands.skipSilenceFrom(ready.sessionExtras),
+                    gainDb = PlaybackCommands.gainFrom(ready.sessionExtras),
                 )
                 pendingRecording?.let { attach(it) }
                 pendingRecording = null

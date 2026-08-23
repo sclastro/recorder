@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sclastro.recorder.AppContainer
 import com.sclastro.recorder.BuildConfig
 import com.sclastro.recorder.data.FileNaming
+import com.sclastro.recorder.data.FolderMirror
 import com.sclastro.recorder.data.prefs.AppSettings
 import com.sclastro.recorder.data.prefs.ThemeMode
 import com.sclastro.recorder.ui.containerViewModelFactory
@@ -71,8 +73,7 @@ class SettingsViewModel(
 
     val storageRoot: String = container.storage.root.absolutePath
 
-    fun mirrorLabel(uri: String) = container.mirror.label(uri)
-    fun mirrorUsable(uri: String) = container.mirror.isUsable(uri)
+    suspend fun describeMirror(uri: String) = container.mirror.describe(uri)
 
     /** Persists the SAF grant before storing it, or the copy fails after a reboot. */
     fun setMirrorTree(uri: String) = viewModelScope.launch {
@@ -86,6 +87,7 @@ class SettingsViewModel(
     fun setRetention(days: Int) = viewModelScope.launch { container.settings.setTrashRetentionDays(days) }
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { container.settings.setThemeMode(mode) }
     fun setSplitMinutes(value: Int) = viewModelScope.launch { container.settings.setSplitMinutes(value) }
+    fun setSplitMegabytes(value: Int) = viewModelScope.launch { container.settings.setSplitMegabytes(value) }
     fun setVoxEnabled(value: Boolean) = viewModelScope.launch { container.settings.setVoxEnabled(value) }
     fun setVoxThreshold(db: Int) = viewModelScope.launch { container.settings.setVoxThresholdDb(db) }
 
@@ -117,10 +119,11 @@ fun SettingsScreen(
     ) { uri ->
         if (uri != null) viewModel.setMirrorTree(uri.toString())
     }
-    val mirrorLabel = settings.mirrorTreeUri
-        .takeIf { it.isNotBlank() }
-        ?.let { viewModel.mirrorLabel(it) }
-    val mirrorUsable = settings.mirrorTreeUri.isNotBlank() && viewModel.mirrorUsable(settings.mirrorTreeUri)
+    // Off the main thread: describing the folder is a content-resolver query,
+    // and this used to run on every recomposition.
+    val mirror by produceState(FolderMirror.Info(null, false), settings.mirrorTreeUri) {
+        value = viewModel.describeMirror(settings.mirrorTreeUri)
+    }
 
     fun insertToken(token: String) {
         val current = template
@@ -214,6 +217,8 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
+            Text("Every", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(4.dp))
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -231,6 +236,39 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+            Text("Or every", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(4.dp))
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = settings.splitMegabytes == 0,
+                    onClick = { viewModel.setSplitMegabytes(0) },
+                    label = { Text("Off") },
+                )
+                listOf(100, 250, 500, 1024).forEach { mb ->
+                    FilterChip(
+                        selected = settings.splitMegabytes == mb,
+                        onClick = { viewModel.setSplitMegabytes(mb) },
+                        label = { Text(if (mb < 1024) "$mb MB" else "1 GB") },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                // Otherwise a two-hour WAV quietly becoming two files reads as
+                // a bug rather than as the format's own limit.
+                text = "WAV recordings always split near 4 GB whatever is set here — a WAV " +
+                    "cannot describe more of itself than that, and one file past the limit " +
+                    "would not open properly elsewhere. That is about 2 hours at 96 kHz " +
+                    "24-bit stereo, or 13 hours at 44.1 kHz 16-bit mono.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             Spacer(Modifier.height(16.dp))
             ToggleRow(
@@ -320,22 +358,22 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(onClick = { treeLauncher.launch(null) }) {
-                    Text(if (mirrorLabel == null) "Choose a folder" else "Change")
+                    Text(if (mirror.chosen) "Change" else "Choose a folder")
                 }
-                if (mirrorLabel != null) {
+                if (mirror.chosen) {
                     TextButton(onClick = { viewModel.setMirrorTree("") }) { Text("Turn off") }
                 }
             }
-            mirrorLabel?.let { label ->
+            mirror.label?.let { label ->
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = if (mirrorUsable) {
+                    text = if (mirror.usable) {
                         "Copying to $label"
                     } else {
                         "$label is no longer reachable — choose it again"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (mirrorUsable) {
+                    color = if (mirror.usable) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
                         MaterialTheme.colorScheme.error

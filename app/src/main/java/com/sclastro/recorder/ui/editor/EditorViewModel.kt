@@ -63,26 +63,36 @@ class EditorViewModel(
     private var ticker: Job? = null
 
     fun load(id: Long) {
-        viewModelScope.launch {
-            val recording = container.repository.byId(id) ?: return@launch
-            val peaks = withContext(Dispatchers.IO) {
-                Peaks.load(recording.file) ?: PeakGenerator.generate(recording.file)?.also {
-                    Peaks.save(recording.file, it)
-                }
+        viewModelScope.launch { reload(id) }
+    }
+
+    /**
+     * Suspending, so a caller that has just rewritten the file can wait for the
+     * reload before saying anything. It replaces the whole state, and firing it
+     * off unawaited meant "Original replaced" was written and then wiped by the
+     * fresh state a moment later — the snackbar never saw it.
+     */
+    private suspend fun reload(id: Long) {
+        val recording = container.repository.byId(id) ?: return
+        // The file may have just been swapped underneath this player.
+        player.stop()
+        val peaks = withContext(Dispatchers.IO) {
+            Peaks.load(recording.file) ?: PeakGenerator.generate(recording.file)?.also {
+                Peaks.save(recording.file, it)
             }
-            val duration = recording.durationMs.takeIf { it > 0 }
-                ?: withContext(Dispatchers.IO) { MediaProbe.probe(recording.file).durationMs }
-            _state.value = EditorUiState(
-                recording = recording,
-                peaks = peaks,
-                durationMs = duration,
-                startMs = 0,
-                endMs = duration,
-            )
-            player.setMediaItem(MediaItem.fromUri(recording.file.toURI().toString()))
-            player.prepare()
-            startTicker()
         }
+        val duration = recording.durationMs.takeIf { it > 0 }
+            ?: withContext(Dispatchers.IO) { MediaProbe.probe(recording.file).durationMs }
+        _state.value = EditorUiState(
+            recording = recording,
+            peaks = peaks,
+            durationMs = duration,
+            startMs = 0,
+            endMs = duration,
+        )
+        player.setMediaItem(MediaItem.fromUri(recording.file.toURI().toString()))
+        player.prepare()
+        startTicker()
     }
 
     private fun startTicker() {
@@ -235,9 +245,9 @@ class EditorViewModel(
                         bookmarks = bookmarks,
                     )
                     if (replaced) {
-                        // Reload so the waveform and handles describe the file
-                        // that now exists rather than the one that used to.
-                        load(recording.id)
+                        // Awaited, so the waveform and handles describe the file
+                        // that now exists before the message is written on top.
+                        reload(recording.id)
                         _state.value = _state.value.copy(busy = false, message = "Original replaced")
                     } else {
                         withContext(Dispatchers.IO) { outcome.file.delete() }

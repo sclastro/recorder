@@ -24,19 +24,28 @@ import java.io.File
  */
 class FolderMirror(private val context: Context) {
 
-    /** Whether the granted permission still holds; the user can revoke it. */
-    fun isUsable(treeUri: String?): Boolean {
-        val uri = treeUri?.takeIf { it.isNotBlank() }?.toUri() ?: return false
-        return runCatching { DocumentFile.fromTreeUri(context, uri)?.canWrite() == true }
-            .getOrDefault(false)
+    /** What the settings screen shows about the chosen folder. */
+    data class Info(val label: String?, val usable: Boolean) {
+        val chosen: Boolean get() = label != null
     }
 
-    /** A short label for the settings screen, e.g. "Recordings" or the raw path. */
-    fun label(treeUri: String?): String? {
-        val uri = treeUri?.takeIf { it.isNotBlank() }?.toUri() ?: return null
-        return runCatching { DocumentFile.fromTreeUri(context, uri)?.name }.getOrNull()
-            ?: uri.lastPathSegment
+    /**
+     * Both of these go through the content resolver, which is disk and IPC —
+     * hence `suspend`. They were plain functions called straight from
+     * composition, so every recomposition of the settings screen did two
+     * blocking queries on the main thread.
+     */
+    suspend fun describe(treeUri: String?): Info = withContext(Dispatchers.IO) {
+        val uri = treeUri?.takeIf { it.isNotBlank() }?.toUri() ?: return@withContext Info(null, false)
+        val document = runCatching { DocumentFile.fromTreeUri(context, uri) }.getOrNull()
+        Info(
+            label = document?.name ?: uri.lastPathSegment,
+            usable = runCatching { document?.canWrite() == true }.getOrDefault(false),
+        )
     }
+
+    /** Whether the granted permission still holds; the user can revoke it. */
+    suspend fun isUsable(treeUri: String?): Boolean = describe(treeUri).usable
 
     /**
      * Keeps the grant across reboots. Called once, when the folder is chosen.

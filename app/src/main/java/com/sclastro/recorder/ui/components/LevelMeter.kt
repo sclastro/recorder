@@ -40,6 +40,12 @@ fun LevelMeter(
     rmsDb: Float,
     clipping: Boolean,
     modifier: Modifier = Modifier,
+    /**
+     * VOX threshold, in dBFS, or null when voice activation is off. Picking a
+     * number in Settings with nothing to compare it against was guesswork —
+     * marked on the meter you can see whether your voice actually clears it.
+     */
+    thresholdDb: Float? = null,
 ) {
     val accents = LocalAccents.current
     val rms by animateFloatAsState(PcmMath.dbToFraction(rmsDb), tween(70), label = "rms")
@@ -96,6 +102,15 @@ fun LevelMeter(
                     cornerRadius = CornerRadius(1.5f, 1.5f),
                 )
             }
+            thresholdDb?.let { db ->
+                val x = (size.width * PcmMath.dbToFraction(db)).coerceIn(1f, size.width - 1f)
+                drawRoundRect(
+                    color = accents.warning,
+                    topLeft = Offset(x - 1f, -2f),
+                    size = Size(2f, size.height + 4f),
+                    cornerRadius = CornerRadius(1f, 1f),
+                )
+            }
         }
 
         Row(
@@ -107,7 +122,11 @@ fun LevelMeter(
         ) {
             Text("-60", style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                text = if (clipping) "Clipping" else "Peak %.0f dB".format(peakDb),
+                text = when {
+                    clipping -> "Clipping"
+                    thresholdDb != null -> "Peak %.0f · VOX %.0f dB".format(peakDb, thresholdDb)
+                    else -> "Peak %.0f dB".format(peakDb)
+                },
                 style = MonoSmall,
                 color = if (clipping) accents.danger else MaterialTheme.colorScheme.onSurfaceVariant,
             )

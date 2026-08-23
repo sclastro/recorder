@@ -64,6 +64,7 @@ class PlaybackService : MediaSessionService() {
             .setCallback(SessionCallback())
             .build()
         attachEnhancer(exo.audioSessionId)
+        publishState()
     }
 
     private inner class SessionCallback : MediaSession.Callback {
@@ -100,8 +101,20 @@ class PlaybackService : MediaSessionService() {
                     SessionResult(SessionError.ERROR_NOT_SUPPORTED),
                 )
             }
+            publishState()
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
+    }
+
+    /** Mirrors the two session-owned settings onto the session for controllers. */
+    private fun publishState() {
+        val session = mediaSession ?: return
+        session.setSessionExtras(
+            PlaybackCommands.stateBundle(
+                skipSilence = player?.skipSilenceEnabled == true,
+                gainDb = gainDb,
+            ),
+        )
     }
 
     private fun attachEnhancer(audioSessionId: Int) {

@@ -59,6 +59,13 @@ class RecordingService : LifecycleService() {
     /** Collects files closed by auto-split so each one is filed as it lands. */
     private var segmentJob: Job? = null
 
+    /**
+     * Ids of parts already filed by auto-split during this capture. Touched
+     * from the collector and from the discard path, which are different
+     * coroutines, hence the lock.
+     */
+    private val committedParts = mutableListOf<Long>()
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         val engine = container.engine
@@ -158,16 +165,25 @@ class RecordingService : LifecycleService() {
         segmentJob = lifecycleScope.launch {
             container.engine.segments.collect { segment ->
                 val request = container.activeRequest ?: return@collect
+                // A segment only exists because a split happened, so it always
+                // carries its number.
                 val name = "${request.name.ifBlank { "Recording" }}_part${segment.partNumber}"
                 // appScope, not this one: the service can go away between the
                 // last split and the commit finishing.
                 container.appScope.launch {
                     val saved = container.repository.commitRecording(segment, request.folder, name)
-                    saved?.let { mirror(it.file) }
+                    saved?.let {
+                        // Remembered so that discarding the recording can take
+                        // the parts with it — they are already in the library
+                        // by the time the user changes their mind.
+                        synchronized(committedParts) { committedParts += it.id }
+                        mirror(it.file)
+                    }
                 }
             }
         }
     }
+
 
     private fun watchCallState() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || modeListener != null) return
@@ -228,10 +244,26 @@ class RecordingService : LifecycleService() {
         container.appScope.launch {
             val result = engine.stop()
             if (result != null) {
-                val saved = container.repository.commitRecording(result, folder, name)
+                // Numbered only if a split actually happened, so an ordinary
+                // recording keeps the plain name and a split set stays in order.
+                val finalName = if (result.partNumber > 1) "${name}_part${result.partNumber}" else name
+                val saved = container.repository.commitRecording(result, folder, finalName)
                 container.justSaved.value = saved
                 saved?.let { mirror(it.file) }
+            } else if (engine.state.value.error == null) {
+                // The engine returns nothing when no audio was written. With VOX
+                // armed and nothing ever loud enough that is easy to hit, and
+                // going quietly back to idle looks like the app lost the take.
+                // Only speak up if the engine has not already explained itself.
+                engine.reportError(
+                    if (request?.policy?.voxEnabled == true) {
+                        "Nothing was recorded — the input never reached the VOX threshold"
+                    } else {
+                        "Nothing was recorded — that was too short to save"
+                    },
+                )
             }
+            synchronized(committedParts) { committedParts.clear() }
             container.activeRequest = null
             stopSelf()
         }
@@ -248,10 +280,18 @@ class RecordingService : LifecycleService() {
         container.mirror.copy(file, tree)
     }
 
-    /** Throws the capture away: the pending file is deleted, nothing is filed. */
+    /**
+     * Throws the capture away. The file being written is deleted outright; any
+     * parts auto-split off earlier are already in the library, so they go to
+     * the recycle bin — the dialog promises nothing is kept, and leaving three
+     * hours of parts behind made that a lie. The bin rather than deletion
+     * because that is what every other delete in this app does.
+     */
     private fun discard() {
         container.appScope.launch {
             container.engine.cancel()
+            val parts = synchronized(committedParts) { committedParts.toList().also { committedParts.clear() } }
+            parts.forEach { container.repository.moveToTrash(it) }
             container.activeRequest = null
             stopSelf()
         }

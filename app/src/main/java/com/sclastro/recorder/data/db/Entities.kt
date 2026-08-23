@@ -14,7 +14,7 @@ data class RecordingEntity(
     val relPath: String,
     /** Name shown in the UI, without extension. */
     val displayName: String,
-    /** Folder name; empty string means the root ("未分類"). */
+    /** Folder name; empty string means the root, shown as "Unsorted". */
     val folder: String,
     val createdAt: Long,
     val durationMs: Long,

@@ -186,7 +186,12 @@ fun RecordScreen(
             Spacer(Modifier.height(16.dp))
             LiveWaveform(levels = levels, active = active && !paused)
             Spacer(Modifier.height(16.dp))
-            LevelMeter(peakDb = state.peakDb, rmsDb = state.rmsDb, clipping = state.clipping)
+            LevelMeter(
+                peakDb = state.peakDb,
+                rmsDb = state.rmsDb,
+                clipping = state.clipping,
+                thresholdDb = settings.voxThresholdDb.toFloat().takeIf { settings.voxEnabled },
+            )
 
             // Where the bookmarks are, not just how many. The live waveform
             // only holds about two seconds, so it could never show this.
@@ -368,7 +373,20 @@ fun RecordScreen(
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
             title = { Text("Discard this recording?") },
-            text = { Text("The audio captured so far will be deleted and nothing will be saved.") },
+            text = {
+                Text(
+                    if (state.partNumber > 1) {
+                        // Auto-split has already filed the earlier parts, so
+                        // say what happens to them rather than implying they
+                        // were never written.
+                        "The audio captured so far will be deleted. The " +
+                            "${state.partNumber - 1} parts already saved go to the recycle bin, " +
+                            "where you can still get them back."
+                    } else {
+                        "The audio captured so far will be deleted and nothing will be saved."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDiscard = false

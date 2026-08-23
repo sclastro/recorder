@@ -49,11 +49,17 @@ class RecorderEngine {
          * Whether the current file has reached a boundary. An empty segment
          * never splits, so a misconfigured zero-length limit cannot spin out
          * a stream of empty files.
+         *
+         * [fileBytes] is a lambda rather than a value because measuring it is a
+         * `stat()` on the file, and this runs on the audio thread fifty times a
+         * second. Passing the size directly meant that syscall happened on
+         * every chunk of every recording — including the overwhelmingly common
+         * case where auto-split is off entirely and the answer is thrown away.
          */
-        fun shouldSplit(segmentFrames: Long, sampleRate: Int, fileBytes: Long): Boolean {
+        inline fun shouldSplit(segmentFrames: Long, sampleRate: Int, fileBytes: () -> Long): Boolean {
             if (!splits || segmentFrames <= 0 || sampleRate <= 0) return false
             if (splitMinutes > 0 && segmentFrames >= splitMinutes.toLong() * 60 * sampleRate) return true
-            return splitMegabytes > 0 && fileBytes >= splitMegabytes.toLong() * 1024 * 1024
+            return splitMegabytes > 0 && fileBytes() >= splitMegabytes.toLong() * 1024 * 1024
         }
     }
 
@@ -273,7 +279,13 @@ class RecorderEngine {
         var peakTrack = Peaks.Recorder(config.sampleRate, config.bitDepth, config.channels.count)
         var partNumber = 1
         var segmentStartFrames = 0L
+        var segmentStartBytes = 0L
         var segmentBookmarkFloor = 0L
+
+        // A WAV describes its own length in 32 bits and cannot go past 4 GB.
+        // Splitting there is not a preference, it is the difference between two
+        // valid files and one that other players will read as corrupt.
+        val wavLimit = config.container == AudioContainer.WAV
 
         // VOX: writing only resumes once sound returns, and keeps going for a
         // moment afterwards so the tail of a word is not clipped off.
@@ -318,8 +330,12 @@ class RecorderEngine {
 
                 // Only ever on a chunk boundary, so no frame is split in half.
                 val segmentFrames = framesWritten - segmentStartFrames
-                if (nextFile != null &&
-                    policy.shouldSplit(segmentFrames, config.sampleRate, currentFile.length())
+                val overWavLimit = wavLimit &&
+                    (bytesWritten - segmentStartBytes) >= WavSink.MAX_DATA_BYTES - chunkBytes
+                if (nextFile != null && (
+                        overWavLimit ||
+                            policy.shouldSplit(segmentFrames, config.sampleRate) { currentFile.length() }
+                        )
                 ) {
                     val boundaryMs = framesWritten * 1000 / config.sampleRate
                     finishSegment(
@@ -338,6 +354,7 @@ class RecorderEngine {
                     currentSink = openSink(currentFile, config)
                     peakTrack = Peaks.Recorder(config.sampleRate, config.bitDepth, config.channels.count)
                     segmentStartFrames = framesWritten
+                    segmentStartBytes = bytesWritten
                     segmentBookmarkFloor = boundaryMs
                     _state.value = _state.value.copy(partNumber = partNumber, pendingFile = currentFile)
                 }

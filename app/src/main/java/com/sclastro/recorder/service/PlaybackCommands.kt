@@ -29,4 +29,21 @@ object PlaybackCommands {
     fun skipSilenceArgs(enabled: Boolean) = Bundle().apply { putBoolean(EXTRA_ENABLED, enabled) }
 
     fun gainArgs(db: Int) = Bundle().apply { putInt(EXTRA_GAIN_DB, db) }
+
+    /**
+     * The same two values published back on the session, so a controller that
+     * connects later can show what is actually in effect.
+     *
+     * They belong to the session, not to a screen: opening a second recording
+     * builds a fresh ViewModel whose state starts at zero, and without this the
+     * sheet said "Off" while the audio was still boosted by the last one.
+     */
+    fun stateBundle(skipSilence: Boolean, gainDb: Int) = Bundle().apply {
+        putBoolean(EXTRA_ENABLED, skipSilence)
+        putInt(EXTRA_GAIN_DB, gainDb)
+    }
+
+    fun skipSilenceFrom(extras: Bundle) = extras.getBoolean(EXTRA_ENABLED, false)
+
+    fun gainFrom(extras: Bundle) = extras.getInt(EXTRA_GAIN_DB, 0)
 }

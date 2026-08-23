@@ -68,7 +68,17 @@ against disk on launch.
   because it doubles disk use.
 - **Playback settings ExoPlayer owns but `Player` does not expose**
   (skip-silence, gain above unity) travel to `PlaybackService` as custom
-  session commands; see `PlaybackCommands`.
+  session commands; see `PlaybackCommands`. They belong to the session, not to
+  a screen, so the service publishes them back through `setSessionExtras` and
+  every controller reads them on connect.
+- **WAV always splits near 4 GB**, whatever auto-split is set to. RIFF sizes
+  are unsigned 32-bit, so a longer file describes itself wrongly — this app's
+  reader falls back to the on-disk length and would never notice, but nothing
+  else would open it. Reachable in about 2 hours at 96 kHz/24-bit/stereo. See
+  `WavSink.MAX_DATA_BYTES`.
+- **The capture loop must not touch the filesystem.** It runs fifty times a
+  second at `THREAD_PRIORITY_URGENT_AUDIO`. `Policy.shouldSplit` takes the file
+  size as a lambda for exactly this reason; keep it that way.
 
 ## Checks before pushing
 

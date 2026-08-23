@@ -33,6 +33,8 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** Start a new file every N minutes while recording; 0 is off. */
     val splitMinutes: Int = 0,
+    /** Start a new file every N megabytes; 0 is off. */
+    val splitMegabytes: Int = 0,
     /** Skip writing while the input stays below [voxThresholdDb]. */
     val voxEnabled: Boolean = false,
     val voxThresholdDb: Int = -40,
@@ -42,6 +44,7 @@ data class AppSettings(
     val capturePolicy: RecorderEngine.Policy
         get() = RecorderEngine.Policy(
             splitMinutes = splitMinutes,
+            splitMegabytes = splitMegabytes,
             voxEnabled = voxEnabled,
             voxThresholdDb = voxThresholdDb.toFloat(),
         )
@@ -70,6 +73,7 @@ class SettingsStore(private val context: Context) {
             trashRetentionDays = p[TRASH_DAYS] ?: 30,
             themeMode = enumOr(p[THEME], ThemeMode.SYSTEM),
             splitMinutes = p[SPLIT_MINUTES] ?: 0,
+            splitMegabytes = p[SPLIT_MB] ?: 0,
             voxEnabled = p[VOX] == true,
             voxThresholdDb = p[VOX_DB] ?: -40,
             mirrorTreeUri = p[MIRROR_TREE] ?: "",
@@ -120,6 +124,10 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[SPLIT_MINUTES] = value }
     }
 
+    suspend fun setSplitMegabytes(value: Int) {
+        context.dataStore.edit { it[SPLIT_MB] = value }
+    }
+
     suspend fun setVoxEnabled(value: Boolean) {
         context.dataStore.edit { it[VOX] = value }
     }
@@ -164,6 +172,7 @@ class SettingsStore(private val context: Context) {
         val SEQUENCE = intPreferencesKey("sequence")
         val THEME = stringPreferencesKey("theme")
         val SPLIT_MINUTES = intPreferencesKey("split_minutes")
+        val SPLIT_MB = intPreferencesKey("split_mb")
         val VOX = booleanPreferencesKey("vox")
         val VOX_DB = intPreferencesKey("vox_db")
         val MIRROR_TREE = stringPreferencesKey("mirror_tree")

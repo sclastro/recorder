@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -271,7 +272,9 @@ class LibraryViewModel(
 
     /** True when a mirror folder is set up and reachable. */
     val mirrorReady: StateFlow<Boolean> = container.settings.settings
-        .map { container.mirror.isUsable(it.mirrorTreeUri) }
+        .map { it.mirrorTreeUri }
+        .distinctUntilChanged()
+        .map { container.mirror.isUsable(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /**
