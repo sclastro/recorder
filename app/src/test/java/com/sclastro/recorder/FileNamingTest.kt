@@ -39,4 +39,19 @@ class FileNamingTest {
         assertEquals("Recording", RecordingStorage.sanitiseName("   "))
         assertEquals("會議 記錄", RecordingStorage.sanitiseName("會議 記錄"))
     }
+
+    /**
+     * A folder called ".trash" or ".pending" would have been created on top of
+     * the directories this app keeps its own bookkeeping in, and anything filed
+     * there would have looked deleted.
+     */
+    @Test
+    fun `a leading dot cannot collide with the app's own directories`() {
+        assertEquals(RecordingStorage.TRASH.trimStart('.'), RecordingStorage.sanitiseName(RecordingStorage.TRASH))
+        assertEquals(RecordingStorage.PENDING.trimStart('.'), RecordingStorage.sanitiseName(RecordingStorage.PENDING))
+        assertEquals("hidden", RecordingStorage.sanitiseName(".hidden"))
+        assertEquals("Recording", RecordingStorage.sanitiseName("..."))
+        // A dot in the middle is ordinary and stays.
+        assertEquals("Notes v1.2", RecordingStorage.sanitiseName("Notes v1.2"))
+    }
 }

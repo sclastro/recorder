@@ -82,7 +82,10 @@ fun TrashScreen(
             // The empty state says the same thing, so only one of them shows.
             if (items.isNotEmpty()) {
                 Text(
-                    text = "Deleted recordings stay here for $retentionDays days, then clear automatically.",
+                    // The size matters here: the bin is the usual answer to
+                    // "why is this app holding so much space".
+                    text = "Holding ${formatSize(items.sumOf { it.sizeBytes })}. Deleted recordings " +
+                        "stay here for $retentionDays days, then clear automatically.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),

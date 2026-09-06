@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    What travels to a new phone.
+
+    The recordings themselves do not, and cannot: they live in the app's
+    external files directory and run to gigabytes, well past what auto-backup
+    will carry. What is worth saving is everything *about* them plus how the
+    app is set up.
+
+    The datastore include is the one that used to be missing. Room covers
+    favourites, notes, bookmarks and folders, but every setting — quality,
+    filename template, theme, retention, VOX, auto-split, the mirror folder —
+    lives in a DataStore file under files/datastore, which is the "file"
+    domain and was not listed. Restoring gave you your library metadata with
+    all your preferences reset.
+-->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
+        <include domain="file" path="datastore/" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
+        <include domain="file" path="datastore/" />
     </device-transfer>
 </data-extraction-rules>

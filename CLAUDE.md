@@ -76,9 +76,19 @@ against disk on launch.
   reader falls back to the on-disk length and would never notice, but nothing
   else would open it. Reachable in about 2 hours at 96 kHz/24-bit/stereo. See
   `WavSink.MAX_DATA_BYTES`.
-- **The capture loop must not touch the filesystem.** It runs fifty times a
-  second at `THREAD_PRIORITY_URGENT_AUDIO`. `Policy.shouldSplit` takes the file
-  size as a lambda for exactly this reason; keep it that way.
+- **The capture loop must not touch the filesystem, or grow anything large.**
+  It runs fifty times a second at `THREAD_PRIORITY_URGENT_AUDIO`.
+  `Policy.shouldSplit` takes the file size as a lambda for exactly this reason,
+  and `Peaks.Recorder` keeps its buckets in a hand-grown `ByteArray` rather
+  than a collection — a millisecond spent reallocating there is a dropped
+  buffer. Keep both that way.
+- **`WavFile` is the only RIFF parser.** `TrimEngine`, `EditEngine`,
+  `ExportEngine` and `MediaProbe` all go through it; do not write a second one.
+- **Backups carry the index and the settings, never the audio.** Recordings run
+  to gigabytes and cannot travel. Settings live in DataStore, which is the
+  `file` domain — if a new preference store is ever added, list it in both
+  `backup_rules.xml` and `data_extraction_rules.xml` or it silently will not
+  survive a device transfer.
 
 ## Checks before pushing
 

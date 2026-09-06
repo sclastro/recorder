@@ -43,24 +43,49 @@ object Peaks {
         return out
     }
 
-    /** Accumulates capture buffers into fixed-duration buckets. */
-    class Recorder(private val sampleRate: Int, private val depth: BitDepth, channels: Int) {
+    /**
+     * Accumulates capture buffers into fixed-duration buckets.
+     *
+     * The buckets live in a plain [ByteArray] that is grown by hand. This used
+     * to be an `ArrayList<Byte>`, which holds an object reference per bucket —
+     * roughly 860,000 of them for a twelve-hour recording, several megabytes of
+     * references, and a reallocation-and-copy of the whole thing every time it
+     * doubled. That copy happened on the capture thread at
+     * `THREAD_PRIORITY_URGENT_AUDIO`, where a millisecond spent copying is a
+     * dropped buffer.
+     */
+    class Recorder(sampleRate: Int, depth: BitDepth, channels: Int) {
         private val bytesPerBucket = (sampleRate.toLong() * BUCKET_MS / 1000).toInt() *
             depth.bytes * channels
-        private val out = ArrayList<Byte>(4096)
+
+        private var buckets = ByteArray(INITIAL_BUCKETS)
+        private var count = 0
         private var bytesInBucket = 0
         private var bucketPeak = 0f
 
         fun feed(peak: Float, byteCount: Int) {
+            if (bytesPerBucket <= 0) return
             if (peak > bucketPeak) bucketPeak = peak
             bytesInBucket += byteCount
-            while (bytesInBucket >= bytesPerBucket && bytesPerBucket > 0) {
-                out.add(((bucketPeak.coerceIn(0f, 1f)) * 255f).toInt().toByte())
+            while (bytesInBucket >= bytesPerBucket) {
+                append(((bucketPeak.coerceIn(0f, 1f)) * 255f).toInt().toByte())
                 bytesInBucket -= bytesPerBucket
                 bucketPeak = 0f
             }
         }
 
-        fun snapshot(): ByteArray = out.toByteArray()
+        private fun append(value: Byte) {
+            if (count == buckets.size) {
+                buckets = buckets.copyOf(buckets.size * 2)
+            }
+            buckets[count++] = value
+        }
+
+        fun snapshot(): ByteArray = buckets.copyOf(count)
+
+        private companion object {
+            /** About three minutes of buckets before the first growth. */
+            const val INITIAL_BUCKETS = 4096
+        }
     }
 }

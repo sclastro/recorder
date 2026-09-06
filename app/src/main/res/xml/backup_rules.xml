@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 11 and below. Same reasoning as data_extraction_rules.xml: the
+    index and the settings travel, the audio does not.
+-->
 <full-backup-content>
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
+    <include domain="file" path="datastore/" />
 </full-backup-content>

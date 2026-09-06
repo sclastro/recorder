@@ -398,6 +398,27 @@ fun LibraryScreen(
                         onDelete = { viewModel.moveToTrash(recording.id) },
                     )
                 }
+
+                // Recordings live where no file manager on the phone can see
+                // them, so this is the only place the space they take is
+                // visible at all.
+                item(key = "footer") {
+                    val bytes = state.recordings.sumOf { it.sizeBytes }
+                    Text(
+                        text = buildString {
+                            append(if (state.recordings.size == 1) "1 recording" else "${state.recordings.size} recordings")
+                            append(" · ")
+                            append(formatSize(bytes))
+                            if (state.trashCount > 0) append(" · ${state.trashCount} in the bin")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp, bottom = 8.dp),
+                    )
+                }
             }
             }
         }

@@ -53,11 +53,22 @@ class EncodedSink(
     private val bufferInfo = MediaCodec.BufferInfo()
     private var trackIndex = -1
     private var muxerStarted = false
-    private var totalFramesFed = 0L
     private var finished = false
     private var closed = false
 
     private val bytesPerFrame = 2 * channels
+
+    /**
+     * Bytes rather than frames, because the codec decides how much of a write
+     * fits in one input buffer and that size need not land on a frame boundary.
+     * Counting frames per chunk meant `chunk / bytesPerFrame` threw away the
+     * remainder every single time, and the timestamps handed to the encoder
+     * fell steadily behind the audio actually fed to it.
+     */
+    private var totalBytesFed = 0L
+
+    private val nextPtsUs: Long
+        get() = totalBytesFed / bytesPerFrame * 1_000_000L / sampleRate
 
     override fun write(buffer: ByteArray, size: Int) {
         var offset = 0
@@ -68,9 +79,8 @@ class EncodedSink(
                 input.clear()
                 val chunk = minOf(input.remaining(), size - offset)
                 input.put(buffer, offset, chunk)
-                val ptsUs = totalFramesFed * 1_000_000L / sampleRate
-                codec.queueInputBuffer(index, 0, chunk, ptsUs, 0)
-                totalFramesFed += chunk / bytesPerFrame
+                codec.queueInputBuffer(index, 0, chunk, nextPtsUs, 0)
+                totalBytesFed += chunk
                 offset += chunk
             }
             drain(false)
@@ -85,8 +95,7 @@ class EncodedSink(
         while (!queued) {
             val index = codec.dequeueInputBuffer(TIMEOUT_US)
             if (index >= 0) {
-                val ptsUs = totalFramesFed * 1_000_000L / sampleRate
-                codec.queueInputBuffer(index, 0, 0, ptsUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                codec.queueInputBuffer(index, 0, 0, nextPtsUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                 queued = true
             } else {
                 drain(false)

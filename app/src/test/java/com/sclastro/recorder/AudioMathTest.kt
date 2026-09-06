@@ -72,3 +72,70 @@ class AudioMathTest {
         assertEquals(48000L * 3 * 2, config.bytesPerSecond())
     }
 }
+
+/**
+ * The peak recorder runs on the capture thread, so it has to keep its buckets
+ * without reallocating a large structure under it. These pin the bucketing
+ * arithmetic and the growth.
+ */
+class PeakRecorderTest {
+
+    private val rate = 44_100
+
+    @Test
+    fun `one bucket per fifty milliseconds of audio`() {
+        val recorder = Peaks.Recorder(rate, BitDepth.PCM_16, 1)
+        val bytesPerBucket = rate * Peaks.BUCKET_MS / 1000 * 2
+        // Exactly ten buckets' worth, fed in one go.
+        recorder.feed(1f, bytesPerBucket * 10)
+        assertEquals(10, recorder.snapshot().size)
+    }
+
+    @Test
+    fun `a partial bucket is not emitted until it fills`() {
+        val recorder = Peaks.Recorder(rate, BitDepth.PCM_16, 1)
+        val bytesPerBucket = rate * Peaks.BUCKET_MS / 1000 * 2
+        recorder.feed(1f, bytesPerBucket - 1)
+        assertEquals(0, recorder.snapshot().size)
+        recorder.feed(1f, 1)
+        assertEquals(1, recorder.snapshot().size)
+    }
+
+    @Test
+    fun `the bucket keeps the loudest peak it saw`() {
+        val recorder = Peaks.Recorder(rate, BitDepth.PCM_16, 1)
+        val bytesPerBucket = rate * Peaks.BUCKET_MS / 1000 * 2
+        recorder.feed(0.25f, bytesPerBucket / 2)
+        recorder.feed(1f, bytesPerBucket / 2)
+        recorder.feed(0.1f, bytesPerBucket / 2)
+        val snapshot = recorder.snapshot()
+        assertEquals(255, snapshot[0].toInt() and 0xFF)
+    }
+
+    @Test
+    fun `growth past the initial capacity keeps every bucket`() {
+        val recorder = Peaks.Recorder(rate, BitDepth.PCM_16, 1)
+        val bytesPerBucket = rate * Peaks.BUCKET_MS / 1000 * 2
+        // Well past the 4096-bucket starting array, several doublings in.
+        repeat(10_000) { recorder.feed(1f, bytesPerBucket) }
+        val snapshot = recorder.snapshot()
+        assertEquals(10_000, snapshot.size)
+        assertTrue(snapshot.all { (it.toInt() and 0xFF) == 255 })
+    }
+
+    @Test
+    fun `snapshot does not expose the spare capacity`() {
+        val recorder = Peaks.Recorder(rate, BitDepth.PCM_16, 1)
+        val bytesPerBucket = rate * Peaks.BUCKET_MS / 1000 * 2
+        recorder.feed(1f, bytesPerBucket * 3)
+        // Three buckets, not the 4096 the backing array actually holds.
+        assertEquals(3, recorder.snapshot().size)
+    }
+
+    @Test
+    fun `a nonsensical rate produces nothing rather than looping`() {
+        val recorder = Peaks.Recorder(0, BitDepth.PCM_16, 1)
+        recorder.feed(1f, 100_000)
+        assertEquals(0, recorder.snapshot().size)
+    }
+}

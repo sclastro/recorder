@@ -7,7 +7,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!--
+        No BLUETOOTH_CONNECT. It was declared here but nothing ever used it:
+        Media3 routes to a headset or a car unit through the media session, and
+        transport buttons arrive the same way. On Android 12+ it is a runtime
+        permission, so declaring it put "Nearby devices" in this app's
+        permission list for no reason — a bad trade for a voice recorder, where
+        every permission on the list is one the user has to take on trust.
+    -->
 
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
 

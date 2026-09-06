@@ -49,12 +49,21 @@ class RecordingStorage(context: Context) {
 
         private val ILLEGAL = Regex("[\\\\/:*?\"<>|]")
 
-        /** Keeps spaces and CJK, drops anything a filesystem would object to. */
+        /**
+         * Keeps spaces and CJK, drops anything a filesystem would object to.
+         *
+         * Leading dots go too. They make a hidden file on any Unix filesystem,
+         * and — the reason this matters — a folder named ".trash" or ".pending"
+         * would land straight on top of the directories this app keeps its own
+         * bookkeeping in. Recordings filed there would have looked deleted.
+         */
         fun sanitiseName(raw: String): String =
             raw.replace(ILLEGAL, "_")
                 .filter { it.code >= 0x20 }
                 .trim()
                 .trimEnd('.')
+                .trimStart('.')
+                .trim()
                 .take(120)
                 .ifBlank { "Recording" }
     }
